@@ -1,0 +1,30 @@
+target C {
+    no-compile: true
+};
+
+reactor A {
+    output out:int;
+    reaction(startup) -> out {=
+        lf_set(out, 1);
+    =}
+}
+
+reactor B {
+    input in:int;
+    state s:int(0);
+
+    reaction(in) {=
+        if (in->value == 1) {
+            self->s = in->value;
+        } else {
+            self->s = 2 * in->value;
+        }
+    =}
+}
+
+@property(name="startup", tactic="bmc", spec="!(X[0](Simple2_a_reaction_0))")
+main reactor {
+    a = new A();
+    b = new B();
+    a.out -> b.in after 1 nsec;
+}

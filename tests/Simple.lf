@@ -5,24 +5,26 @@ target C {
 reactor A {
     output out:int;
     reaction(startup) -> out {=
-        lf_set(out, 1);
+        lf_set(out, 2);
     =}
 }
 
 reactor B {
     input in:int;
+    state s:int(0);
     reaction(in) {=
-        if (in->value != 1) {
-            panic();
+        if (in->value <= 1) {
+            self->s = in->value;
+        } 
+        else {
+            self->s = 2 * in->value;
         }
     =}
 }
 
-// The use of @property attribute activates verification.
-// An analyzability validator will determine whether the code block
-// can be analyzed or not. If not, the verifier interprets the block
-// as a nondeterministic operation.
-@property(name="signal_sent", tactic="induction", spec="Simple_a_reaction_0 ==> F[< 5 nsec]( Simple_b_in_is_present && Simple_b_in == 1 )")
+//@property(name="test", tactic="bmc", spec="!(X[0](Simple_a_reaction_0))")
+@property(name="signal_received_within_5_nsec", tactic="bmc", spec="(X[0](Simple_a_reaction_0) ==> F[0, 5 nsec](Simple_b_in_is_present && Simple_b_in == 2 ))") // valid
+// @property(name="state_var_le_3", tactic="bmc", spec="G[0, 1 sec](Simple_b_s < 3)") // sat
 main reactor {
     a = new A();
     b = new B();
