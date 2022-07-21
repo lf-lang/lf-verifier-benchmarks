@@ -1,8 +1,9 @@
-target Uclid;
+target C {
+    no-compile: true
+};
 
 reactor Controller {
     
-    // input in:int;
     output out:int;
     state fault:int;
 
@@ -10,21 +11,14 @@ reactor Controller {
 
     //@label Computation
     reaction(startup) -> out, turnOff {=
-        // Intermediate form of the reaction body.
-        [[fault == 1] ==> (schedule(turnOff, 0))] 
-            /\ [[fault == 0] ==> set(out, 1)]
-            /\ (havoc fault')
-
-        // C equivalent.
-        // Source to source transformation from LF-C to LF-FOL.
         if (self->fault == 1) {
             schedule(turnOff, 0);
             self->fault = 0;
         }
         else if (self->fault == 0) set(out, 1);
 
-        unknown_function(&self->fault);
-        panic(); // Verifier checks if panic() could ever be reached.
+        // unknown_function(&self->fault);
+        // panic(); // Verifier checks if panic() could ever be reached.
         // Can ALL LTLs be expressed using panic()?
         // A subset of LTL can be.
         // Maybe all are expressible but not analyzable.
@@ -43,10 +37,7 @@ reactor Controller {
 }
 
 // Should return a CEX indicating it happens within 3 secs.
-// @property("machine_stops_within_100_msecs_if_fault_occurs",
-//    [[c.reaction[1] /\ c.fault == 1]
-//        ==> [F[<= 100 msec][c.reaction[2]]]])
-// @bound("machine_stops_within_100_msecs_if_fault_occurs", 2)
+@property(name="machine_stops_within_100_msecs_if_fault_occurs", tactic="bmc", spec="((c.reaction[1] /\ c.fault == 1) ==> [F[<= 100 msec][c.reaction[2]]]]")
 main reactor {
    c =  new[2] Controller();
 }
