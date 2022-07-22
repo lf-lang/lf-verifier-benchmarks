@@ -28,8 +28,8 @@ reactor Client {
     state req:int(0);
 
     reaction(startup) -> out {=
-        // Sends an invalid query
-        self->req = 1; // 1 is valid. 0 is invalid.
+        // Sends a query
+        self->req = 0; // 1 is valid. 0 is invalid.
         lf_set(out, self->req);
     =}
 
@@ -62,7 +62,7 @@ reactor Server {
 }
 
 // MTL: F(rxn == reaction_1)
-@property(name="safe_send", tactic="bmc", spec="(F[0, 1 sec](safe_send_s_reaction_1))")
+@property(name="success", tactic="bmc", spec="(F[0, 1 sec](SafeSend_c_reaction_1))")
 main reactor {
     c = new Client();
     s = new Server();
