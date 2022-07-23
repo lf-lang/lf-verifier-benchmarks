@@ -1,0 +1,85 @@
+target C;
+
+reactor Camera {
+    output out:int;
+    state img:int;
+    reaction(startup) -> out {= 
+        self->img = 1;
+        lf_set(out, self->img);
+    =}
+}
+
+reactor LiDAR {
+    output out:int;
+    state img:int;
+    reaction(startup) -> out {= 
+        self->img = 2;
+        lf_set(out, self->img);
+    =}
+}
+
+reactor Pedal {
+    output out:int;
+    physical action a;
+    reaction(a) -> out {=
+        lf_set(out, 1);
+    =}
+}
+
+reactor ADASProcessor {
+    input in1:int;
+    input in2:int;
+    output out1:int;
+    output out2:int;
+    logical action a(50 msec);
+    state requestStop:int;
+    reaction(in2, in1) -> a {=
+        lf_schedule(a, 0);
+        // ... Perform neural network computation.
+        self->requestStop = 1;
+    =}
+    reaction(a) -> out1, out2 {=
+        if (self->requestStop == 1)
+            lf_set(out2, 1);
+    =}
+}
+
+reactor Brakes {
+    input in1:int;
+    input in2:int;
+    state brakesApplied:int(0);
+    reaction(in1, in2) {=
+        // ... Actuate the car brakes.
+        self->brakesApplied = 1;
+    =}
+}
+
+reactor Dashboard {
+    input in:int;
+    state received:int;
+    reaction(in) {=
+        self->received = 1;
+    =}
+}
+
+@property(name="responsive", tactic="bmc", spec="G[0, 10 sec]( ADAS_v_reaction_0 ==> (F[0, 100 msec]( ADAS_b_reaction_0 )))")
+main reactor {
+    c = new Camera();
+    l = new LiDAR();
+    v = new ADASProcessor();
+    b = new Brakes();
+    d = new Dashboard();
+    c.out -> v.in1;
+    l.out -> v.in2;    
+    v.out2 -> b.in2 after 5 sec;
+    v.out1 -> d.in;
+}
+
+//// Pedal uses physical action, which is not supported yet.
+// p = new Pedal();
+// p.out -> b.in1;  
+
+// @property(name="test", tactic="bmc", spec="false")
+// FIXME: Why doesn't below work?
+// @property(name="responsive", tactic="bmc", spec="G[0, 10 sec](( ADAS_v_reaction_0 && F[50 msec]( ADAS_b_reaction_0 )) ==> (F[0, 100 msec](ADAS_b_reaction_0)) )")
+
