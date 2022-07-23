@@ -1,0 +1,108 @@
+target C {
+    coordination: decentralized
+};
+
+reactor Vehicle {
+	
+	input grant:bool;
+    
+    output done:bool;
+    output request:bool;
+    
+    // logical action arrive(2 sec);
+    physical action arrive
+    physical action finish;
+    
+    state duration_of_use:time(1 sec);
+    
+    reaction(arrive) -> request /*, arrive*/ {=
+        info_print("Vehicle %d has arrived.", self->bank_index);
+        SET(request, true);
+        
+        // Schedule the next vehicle.
+        // This will be replaced by the dynamic
+        // joining of federates once the infrastructure
+        // is available.
+        // schedule(arrive, 0);
+    =}
+    
+    reaction(grant) -> finish {=
+        info_print("Vehicle %d: enters the intersection.", self->bank_index);
+        schedule(finish, self->duration_of_use);
+    =}
+    
+    reaction(finish) -> done {=
+        SET(done, true);
+        info_print("Vehicle %d: leaves the intersection.", self->bank_index);
+    =}
+    
+    /*
+    reaction(startup) -> arrive {=
+        info_print("Startup: waiting for the first vehicle %d to arrive.", self->bank_index);
+        schedule(arrive, 0);
+    =}
+    */
+}
+
+reactor RSU (
+    num_vehicles:int(4)
+) {
+    
+    input[num_vehicles] request:bool;
+    input[num_vehicles] done:bool;
+    output[num_vehicles] grant:bool;
+    
+    state assigned:bool;
+    state next_free:time(0);
+    state const_wait:time(1 sec); // This can in fact be dynamically calculated and can still produce the same issue.
+    
+    logical action issue_grant:int;
+    
+    /**
+     * When a request comes through the request port, the RSU checks
+     * the following conditions:
+     * 
+     * 1. Not assigned and no pending request: grant immediately.
+     * 2. Assigned and no pending request: grant with a logical delay
+     * 		of remaining wait time.
+     * 3. Assigned and having pending requests: grant with a logical delay
+     * 		of remaining wait time + wait times from pending requests.
+     */
+    reaction(request) -> issue_grant {=
+        info_print("In reaction to request.");
+        for (int i = 0; i < self->num_vehicles; i++) {
+			if (request[i]->is_present) {                
+                instant_t current_time = get_logical_time();
+                if (current_time > self->next_free) {
+                    schedule_int(issue_grant, 0, i);
+                }
+                else {
+                    schedule_int(issue_grant, self->next_free - current_time, i);
+                }
+                self->next_free += self->const_wait;
+            }
+        }
+    =}
+    
+    reaction(issue_grant) -> grant {=
+        info_print("In reaction to issue_grant.");
+        SET(grant[issue_grant->value], true);
+        info_print("RSU: grants the right of way to vehicle %d.", issue_grant->value);
+    =}
+    
+    reaction(done) {=
+        info_print("RSU is notified.");
+    =}
+}
+
+federated reactor (
+    num_vehicles:int(2)
+) {
+    
+    vehicles = new[num_vehicles] Vehicle();
+    rsu = new RSU(num_vehicles=num_vehicles);
+    
+    vehicles.request -> rsu.request;
+    vehicles.done -> rsu.done;
+    rsu.grant -> vehicles.grant;
+}
