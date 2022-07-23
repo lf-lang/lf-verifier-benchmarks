@@ -71,7 +71,7 @@ main reactor {
     d = new Dashboard();
     c.out -> v.in1;
     l.out -> v.in2;    
-    v.out2 -> b.in2 after 5 sec;
+    v.out2 -> b.in2 after 5 sec; // Way too long. 5 msec works.
     v.out1 -> d.in;
 }
 
