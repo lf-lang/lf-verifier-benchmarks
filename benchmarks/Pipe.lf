@@ -1,0 +1,62 @@
+/**
+ * Important: Solver would block if CT < 10.
+ */
+target C;
+
+reactor Source {
+    output out:int;
+    state value:int(0);
+    // If no delay set here, then there will only be 1 chain activation.
+    // This can actually be caught!
+    logical action a(1 sec); 
+    reaction(startup) -> a, out {=
+        self->value += 1;
+        lf_set(out, self->value);
+        lf_schedule(a, 0);
+    =}
+    reaction(a) -> out {=
+        lf_set(out, self->value);
+    =}
+}
+
+reactor Node {
+    
+    input  in:int;
+    output out:int;
+    
+    state  count:int;
+    state  payload:int;
+
+    logical action send_output;
+
+    reaction(in) -> send_output {=
+        self->payload = in->value;
+        self->count += 1;
+        lf_schedule(send_output, 0);
+    =}
+
+    reaction(send_output) -> out {=
+        lf_set(out, self->payload);
+        self->count -= 1;
+    =}
+}
+
+reactor Sink {
+    input in:int;
+    state received:int;
+    reaction(in) {=
+        self->received = in->value;
+    =}
+}
+
+// @property(name="test", tactic="bmc", spec="false")
+@property(name="at_most_one_token", tactic="bmc", spec="G[0, 1 sec](Pipe_node_count <= 1)")
+main reactor {
+    
+    source = new Source();
+    node = new Node();
+    sink = new Sink();
+
+    source.out -> node.in after 1 sec;
+    node.out -> sink.in after 1 sec;    
+}
