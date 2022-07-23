@@ -1,0 +1,16 @@
+target C;
+
+reactor Timer {
+    logical action act(1 sec):int;
+    reaction(startup) -> act {=
+        lf_schedule(act, 0);
+    =}
+    reaction(act) -> act {=
+        lf_schedule(act, 0);
+    =}
+}
+
+@property(name="test", tactic="bmc", spec="false")
+main reactor {
+    t = new Timer();
+}

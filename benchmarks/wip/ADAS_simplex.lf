@@ -1,0 +1,75 @@
+target C;
+
+reactor Camera {
+    output out:{=image_t=};
+    state img:{=image_t=};
+    timer t(0, 10 msec);
+    reaction(t) -> out {= lf_set(out, img); =}
+}
+
+reactor Pedal {
+    output out:bool;
+    physical action a;
+    reaction(a) -> out {= lf_set(out, true); =}
+}
+
+reactor CNN {
+    input in:bool;
+    output out:bool;
+    logical action a(5 msec);
+    state requestStop:bool;
+    reaction(in) -> a {=
+        lf_schedule(a, 0);
+        // ... Perform neural network computation.
+    =}
+    reaction(a) -> out {=
+        if (self->requestStop) lf_set(out, true);
+    =} deadline(5 msec) {==}
+}
+
+reactor FastCNN {
+    input in:bool;
+    output out:bool;
+    logical action a(2 msec);
+    state requestStop:bool;
+    reaction(in) -> a {=
+        lf_schedule(a, 0);
+        // ... Perform neural network computation.
+    =}
+    reaction(a) -> out {=
+        if (self->requestStop) lf_set(out, true);
+    =} deadline(8 msec) {==}
+}
+
+reactor Vision {
+    input in:bool;
+    output out1:bool;
+    output out2:bool;
+
+    reaction(in) -> c.in, f.in {==}
+
+    c = new CNN();
+    f = new FastCNN();
+    c.out -> out1;
+    f.out -> out2;
+}
+
+reactor Break {
+    input in1:bool;
+    input in2:bool;
+    input in3:bool;
+    reaction(in2, in1, in3) {=
+        // ... Actuate the car break.
+    =}
+}
+
+main reactor {
+    c = new Camera();
+    p = new Pedal();
+    v = new Vision();
+    b = new Break();
+    c.out -> v.in;
+    v.out1 -> b.in1;
+    v.out2 -> b.in2;
+    p.out -> b.in3;
+}
