@@ -62,6 +62,7 @@ reactor Server {
 }
 
 // MTL: F(rxn == reaction_1)
+// @property(name="success", tactic="bmc", spec="(F[0, 1 sec](c.reactions[1]))")
 @property(name="success", tactic="bmc", spec="(F[0, 1 sec](SafeSend_c_reaction_1))")
 main reactor {
     c = new Client();
