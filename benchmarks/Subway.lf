@@ -6,9 +6,14 @@ reactor UMS {
     input done:int;
     output response:int;
     output grant:int;
-    state pos:int; // 1 -> AB, 2 -> BC, else ill positioned.
+    state pos:int; // 0 -> AB, 1 -> BC, else ill positioned.
     state inUse:int; // 0 -> false, 1 -> true.
     logical action issue;
+
+    reaction(startup) {=
+        self->pos = 0;
+        self->inUse = 0;
+    =}
     
     reaction(query) -> response {=
         lf_set(response, self->pos);
@@ -63,7 +68,9 @@ reactor Train {
 }
 
 //@property(name="test", tactic="bmc", spec="false")
-@property(name="receives_done_within_601_sec", tactic="bmc", spec="F[0, 601 sec](Subway_u_reaction_2)")
+// @property(name="ums_receives_done_within_11_minutes", tactic="bmc", spec="F[0, 660 sec](Subway_u_reaction_3)")
+@property(name="ums_receives_done_within_11_minutes", tactic="bmc", spec="F[0, 11 minute](Subway_u_reaction_3)")
+
 main reactor {
     u = new UMS();
     t = new Train();
