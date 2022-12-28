@@ -1,0 +1,256 @@
+/*
+The following comments come from Kind2.
+
+Acknowledgements: This example is inspired by a similar one 
+by Prover Technology AB, later adapted at Chalmers University 
+by Carl Johan Lillieroth, K.V.S. Prasad, Mary Sheeran, Angela 
+Wallenburg, and Jan-Willem Roorda. 
+
+-------
+Setting
+-------
+.                      |
+.                      |
+.                      |
+.               _______________
+.               |      |      | 
+.               |      |      | 
+.               |      |      | o Call 2
+.               |      |      | 
+.               |      |      |
+.               |      |      |
+.               |      |      |         Floor 2
+-------------------------------------------------------
+.                      |
+.                      |
+.                      |
+.                      |
+.                      |
+.               _______________
+.               |______|______|
+.               ||           || 
+.               ||  o 2      || o Call 1
+.               ||  o 1      ||
+.               ||  o stop   ||
+.               ||           || 
+.               ||___________||         Floor 1
+-------------------------------------------------------
+
+
+It models a simple elevator, moving people between two floors. 
+In the elevator, there are three buttons: 
+- a button 1 to go to the first floor, 
+- a button 2 to go to the first floor, and 
+- a stop switch to stop the elevator. 
+On each floor, there is a button to call the elevator. 
+
+The elevator has three sensors, 
+- the first indicating if the elevator is on the first floor or not, 
+- the second doing the same for the second floor, and 
+- the third indicating if the elevator's door is closed or not.
+
+The stop switch is located within the elevator and can be pressed to 
+block the elevator. While the switch is on, the elevator stops immediately 
+if it was moving and ignores any other input. Turning the switch back off 
+makes the elevator responsive again to other inputs.
+
+The elevator is moved up and down by a motor that is on the roof of the 
+building. The motor is controlled by two signals, 
+- one for moving the elevator up and 
+- one for moving it down.
+
+The control system looks at the buttons that are being pressed and
+the sensors that say where the elevator is and whether the door is open, 
+and then decides if the motor should move the elevator up or down, 
+or do nothing.
+
+For simplicity, we do not distinguish between the case of someone 
+on floor 1 (resp., 2) pressing the call button and someone 
+in the elevator pressing the button 1 (resp., 2). 
+
+-------------------
+Safety Requirements
+-------------------
+
+The controller is supposed to satisfy the following safety requirements:
+
+R1  The elevator shall move only when the door is closed and the stop switch 
+    is off.
+R2  The elevator shall not try to pass the end positions
+    (that is, try go through the roof or the floor).
+R3  A moving elevator shall halt only if the stop switch is on, or the door 
+    is open, or the elevator has arrived at the destination floor.
+R4  The elevator shall halt before changing direction.
+R5  The signals sent to the motor shall not be contradictory.
+R6  The elevator shall move when it should. 
+R7  The elevator shall stay on a floor indefinitely 
+    while there is no call to the other floor.
+*/
+target C
+
+// Control the motors based on buttons.
+// This simple implementation does not
+// queue the requests. So when a request
+// is raised during the execution of another
+// request, simply ignore the other request.
+reactor Control {
+    input Call1:int
+    input Call2:int
+    input Stop:int
+    input ReachFloor:int
+    input DoorStatus:int
+
+    output MotorUp:int
+    output MotorDown:int
+    output DoorCommand:int
+
+    state Floor:int
+    state DoorIsOpen:int
+    state StopPressed:int
+    state direction:int // 1 = UP, -1 = DOWN, 0 = NOT MOVING
+
+    // Call from floor 1
+    reaction(Call1) -> MotorDown, DoorCommand {=
+        if ((!(self->StopPressed == 1) && !(self->DoorIsOpen == 1)) // CanMove
+            && self->Floor != 1
+            && self->direction == 0)
+        {
+            // [Danger!] It is possible that the door
+            // is not fully closed when the motor
+            // starts moving. This should be caught
+            // by the verifier. A better design involves
+            // a causal dependency from making sure that
+            // the door is closed and the start of the motor.
+            lf_set(DoorCommand, 0);
+
+            lf_set(MotorDown, 1);
+        }
+    =}
+
+    // Call from floor 2
+    reaction(Call2) -> MotorUp, DoorCommand {=
+        if ((!(self->StopPressed == 1) && !(self->DoorIsOpen == 1)) // CanMove
+            && self->Floor != 2
+            && self->direction == 0)
+        {
+            lf_set(DoorCommand, 0); // [Danger!] Same as above
+            lf_set(MotorUp, 1);
+        }
+    =}
+
+    // Pressing the stop button again
+    // is interpreted as "unstop".
+    // Also, when stop is requested,
+    // the door is set to open.
+    // When stop is unset, the door
+    // is set to close.
+    reaction(Stop) -> DoorCommand {=
+        if (self->StopPressed == 0) {
+            self->StopPressed = 1;
+            lf_set(DoorCommand, 1); // Open door
+        }
+        else {
+            self->StopPressed = 0;
+            lf_set(DoorCommand, 0); // Close door
+        }
+    =}
+
+    reaction(ReachFloor) -> DoorCommand {=
+        self->Floor = ReachFloor->value;
+        lf_set(DoorCommand, 1); // Open door
+    =}
+
+    reaction(DoorStatus) {=
+        self->DoorIsOpen = DoorStatus->value;
+    =}
+}
+
+// Model the physical world
+reactor Simulator {
+    output Call1:int
+    output Call2:int
+    output Stop:int
+    output DoorStatus:int
+    output ReachFloor:int
+
+    input MotorUp:int
+    input MotorDown:int
+    input DoorCommand:int
+
+    // physical action Call1Pressed
+    // physical action Call2Pressed
+    // physical action StopPressed
+    timer Call1Pressed(0, 15 sec)
+    timer Call2Pressed(5 sec, 15 sec)
+    timer StopPressed(10 sec, 15 sec)
+
+    logical action MotorDone(4 sec)
+    logical action CheckDoor(2 sec)
+    logical action ResetDirection
+
+    state direction:int(0)  // 1 = UP, -1 = DOWN, 0 = NOT MOVING
+    state doorStatus:int(0) // 1 = OPEN, 0 = CLOSED
+
+    reaction(Call1Pressed) -> Call1 {=
+        lf_set(Call1, 1);
+    =}
+
+    reaction(Call2Pressed) -> Call2 {=
+        lf_set(Call2, 1);
+    =}
+
+    reaction(StopPressed) -> Stop {=
+        lf_set(Stop, 1);
+    =}
+
+    reaction(MotorUp, MotorDown) -> MotorDone {=
+        if (MotorUp->is_present && !MotorDown->is_present) {
+            self->direction = 1;
+            lf_schedule(MotorDone, 0);
+        } 
+        else if (MotorDown->is_present && !MotorUp->is_present) {
+            self->direction = -1;
+            lf_schedule(MotorDone, 0);
+        }
+    =}
+
+    reaction(MotorDone) -> ReachFloor, ResetDirection {=
+        if (self->direction == 1)
+            lf_set(ReachFloor, 2);
+        else if (self->direction == -1)
+            lf_set(ReachFloor, 1);
+
+        lf_schedule(ResetDirection, 0);
+    =}
+
+    // This can be merged into the above reaction once
+    // the sequential order of C statements is supported.
+    reaction(ResetDirection) {=
+        self->direction = 0;
+    =}
+
+    reaction(DoorCommand) -> CheckDoor {=
+        self->doorStatus = DoorCommand->value;
+        lf_schedule(CheckDoor, 0);
+    =}
+
+
+    reaction(CheckDoor) -> DoorStatus {=
+        lf_set(DoorStatus, self->doorStatus);
+    =}
+}
+
+@property(name="test", tactic="bmc", spec="G[0, 5 sec](false)")
+main reactor {
+    c = new Control()
+    s = new Simulator()    
+    
+    c.MotorUp -> s.MotorUp
+    c.MotorDown -> s.MotorDown
+    c.DoorCommand -> s.DoorCommand
+    s.Call1 -> c.Call1
+    s.Call2 -> c.Call2
+    s.Stop -> c.Stop
+    s.ReachFloor -> c.ReachFloor
+    s.DoorStatus -> c.DoorStatus
+}
