@@ -1,0 +1,48 @@
+/**
+ * This version has the strange issue that the model
+ * is blocked when CT < 20.
+ */
+
+target C {
+    timeout: 10 nsec
+}
+
+reactor _Factorial {
+    output out:int
+    timer t(0, 1 nsec);
+    logical action prepForNext
+
+    state N:int(0)
+    state result:int
+    state lastResult:int
+
+    reaction(t) -> out, prepForNext {=
+        if (self->N < 2) {
+            self->result = 1;
+        } else {
+            self->result = self->N * self->lastResult;
+        }
+        lf_set(out, self->result);
+        lf_schedule(prepForNext, 0);
+    =}
+    reaction(prepForNext) {=
+        self->N += 1;
+        self->lastResult = self->result;
+    =}
+}
+
+reactor Printer {
+    input in:int
+    state result:int
+    reaction(in) {=
+        self->result = in->value;
+        printf("%d\n", self->result);
+    =}
+}
+
+@property(name="test", tactic="bmc", spec="G[0, 2 nsec](false)")
+main reactor {
+    factorial = new _Factorial()
+    printer = new Printer()
+    factorial.out -> printer.in
+}

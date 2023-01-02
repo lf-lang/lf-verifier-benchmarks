@@ -1,15 +1,11 @@
-/**
- * Important: Solver would block if CT < 10.
- */
 target C;
 
 reactor Source {
     output out:int;
     state value:int(0);
-    // If no delay set here, then there will only be 1 chain activation.
-    // This can actually be caught!
-    logical action a(1 sec); 
-    reaction(startup) -> a, out {=
+    logical action a(1 sec);
+    timer t(0, 2 sec);
+    reaction(t) -> a, out {=
         self->value += 1;
         lf_set(out, self->value);
         lf_schedule(a, 0);
@@ -49,14 +45,22 @@ reactor Sink {
     =}
 }
 
-// @property(name="test", tactic="bmc", spec="false")
-@property(name="at_most_one_token", tactic="bmc", spec="G[0, 1 sec](Pipe_node_count <= 1)")
+@property(name="test", tactic="bmc", spec="G[0, 1 sec](false)")
+// @property(name="received", tactic="bmc", spec="G[0, 1 sec](!(Pipe_node1_count <= 1 && Pipe_node2_count <= 1 && Pipe_node3_count <= 1 && Pipe_node4_count <= 1 && Pipe_node5_count <= 1))")
 main reactor {
     
     source = new Source();
-    node = new Node();
+    node1 = new Node();
+    node2 = new Node();
+    node3 = new Node();
+    node4 = new Node();
+    node5 = new Node();
     sink = new Sink();
 
-    source.out -> node.in after 1 sec;
-    node.out -> sink.in after 1 sec;    
+    source.out -> node1.in;
+    node1.out -> node2.in;
+    node2.out -> node3.in;
+    node3.out -> node4.in;
+    node4.out -> node5.in;
+    node5.out -> sink.in;
 }

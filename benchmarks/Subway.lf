@@ -67,10 +67,7 @@ reactor Train {
     =}
 }
 
-//@property(name="test", tactic="bmc", spec="false")
-// @property(name="ums_receives_done_within_11_minutes", tactic="bmc", spec="F[0, 660 sec](Subway_u_reaction_3)")
 @property(name="ums_receives_done_within_11_minutes", tactic="bmc", spec="F[0, 11 minute](Subway_u_reaction_3)")
-
 main reactor {
     u = new UMS();
     t = new Train();

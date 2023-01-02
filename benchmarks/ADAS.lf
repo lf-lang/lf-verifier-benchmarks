@@ -3,7 +3,8 @@ target C;
 reactor Camera {
     output out:int;
     state img:int;
-    reaction(startup) -> out {= 
+    timer t(0, 17 msec); // 60 fps
+    reaction(t) -> out {= 
         self->img = 1;
         lf_set(out, self->img);
     =}
@@ -12,7 +13,8 @@ reactor Camera {
 reactor LiDAR {
     output out:int;
     state img:int;
-    reaction(startup) -> out {= 
+    timer t(0, 34 msec); // 30 fps
+    reaction(t) -> out {= 
         self->img = 2;
         lf_set(out, self->img);
     =}
@@ -62,7 +64,7 @@ reactor Dashboard {
     =}
 }
 
-@property(name="responsive", tactic="bmc", spec="G[0, 10 sec]( ADAS_v_reaction_0 ==> (F[0, 100 msec]( ADAS_b_reaction_0 )))")
+@property(name="responsive", tactic="bmc", spec="G[0, 1 msec]( ADAS_v_reaction_0 ==> (F[0, 100 msec]( ADAS_b_reaction_0 )))")
 main reactor {
     c = new Camera();
     l = new LiDAR();
@@ -71,7 +73,7 @@ main reactor {
     d = new Dashboard();
     c.out -> v.in1;
     l.out -> v.in2;    
-    v.out2 -> b.in2 after 5 sec; // Way too long. 5 msec works.
+    v.out2 -> b.in2 after 5 msec; // Changing 5 msec to 5 sec blows up the CT.
     v.out1 -> d.in;
 }
 

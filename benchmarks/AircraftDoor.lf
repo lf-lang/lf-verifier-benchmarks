@@ -25,7 +25,7 @@ reactor Vision {
 
 reactor Door {
     input in:int;
-    state doorOpen:int;    
+    state doorOpen:int;
     reaction(in) {=
         if (in->value == 1)
             self->doorOpen = 1; // Open
@@ -34,8 +34,8 @@ reactor Door {
     =}
 }
 
-// @property(name="test", tactic="bmc", spec="false")
-@property(name="vision_works", tactic="induction", spec="((AircraftDoor_vision_ramp == 0) ==> G[0 sec](AircraftDoor_door_reaction_0 ==> AircraftDoor_door_doorOpen == 1))")
+@property(name="test", tactic="bmc", spec="false")
+// @property(name="vision_works", tactic="induction", spec="((AircraftDoor_vision_ramp == 0) ==> G[0 sec](AircraftDoor_door_reaction_0 ==> AircraftDoor_door_doorOpen == 1))")
 main reactor AircraftDoor {
     controller	= new Controller();
     vision		= new Vision();

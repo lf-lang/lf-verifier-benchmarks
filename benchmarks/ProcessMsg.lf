@@ -1,0 +1,35 @@
+target C
+
+reactor Task {
+    input in:int
+    output out:int
+
+    state messageSent:int
+    state messageReceived:int
+    state counter:int(0)
+    state panic:int(0)
+
+    timer t(0, 1 nsec)
+
+    reaction(startup) {=
+        self->messageSent = 0;
+    =}
+    reaction(t) -> out {=
+        lf_set(out, self->messageSent);
+    =}
+    reaction(in) {=
+        /* Check for invalid message.  */
+        if (in->value != self->messageSent) {
+            self->panic = 1;
+        }
+
+        /* Increment the last word of the 16-byte message.  */
+        self->messageSent += 1;
+    =}
+}
+
+@property(name="test", tactic="bmc", spec="G[0, 5 nsec](false)")
+main reactor {
+    task = new Task()
+    task.out -> task.in
+}
