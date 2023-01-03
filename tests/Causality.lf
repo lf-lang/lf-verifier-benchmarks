@@ -1,0 +1,36 @@
+target C;
+
+reactor A {
+    output out:int;
+    timer t(0, 1 sec);
+    reaction(t) -> out {==}
+}
+
+reactor B {
+    input in:int;
+    input in2:int;
+    input in3:int;
+    reaction(in2) {==}
+    reaction(in, in3) {==}
+}
+
+reactor C {
+    output out:int;
+    reaction(startup) -> out {==}
+}
+
+reactor D {
+    output out:int;
+    logical action a(10 msec);
+    reaction(startup, a) -> out, a {==}
+}
+
+main reactor {
+    a = new A();
+    b = new B();
+    c = new C();
+    d = new D();
+    a.out -> b.in after 10 sec;
+    c.out -> b.in2 after 1 sec;
+    d.out -> b.in3;
+}

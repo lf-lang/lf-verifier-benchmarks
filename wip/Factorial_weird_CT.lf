@@ -1,0 +1,54 @@
+/**
+ * This version has the strange issue that the model
+ * is blocked when CT < 20.
+ */
+
+target C {
+    timeout: 10 nsec
+}
+
+reactor Factorial {
+    output out:int
+    input last:int
+    timer t(0, 1 nsec);
+    logical action incrementN
+
+    state N:int(0)
+    state result:int
+    state lastResult:int
+
+    reaction(last) {=
+        self->lastResult = last->value;
+    =}
+    reaction(t) -> out, incrementN {=
+        if (self->N < 2) {
+            self->result = 1;
+        } else {
+            self->result = self->N * self->lastResult;
+        }
+        lf_set(out, self->result);
+        lf_schedule(incrementN, 0);
+    =}
+    reaction(incrementN) {=
+        self->N += 1;
+    =}
+}
+
+reactor Printer {
+    input in:int
+    state result:int
+    reaction(in) {=
+        self->result = in->value;
+        // printf("%d\n", self->result);
+    =}
+}
+
+// FIXME: Why do CEXs start to appear at CT=20??
+@property(name="test", tactic="bmc", spec="G[0, 2 nsec](false)", CT=20)
+// @property(name="test", tactic="bmc", spec="G[0, 3 nsec](false)", CT=20)
+main reactor {
+    factorial = new Factorial()
+    printer = new Printer()
+    factorial.out -> printer.in
+    factorial.out -> factorial.last after 1 nsec
+}

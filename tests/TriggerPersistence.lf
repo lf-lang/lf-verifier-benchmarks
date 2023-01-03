@@ -1,0 +1,23 @@
+target C {
+    no-compile: true
+}
+
+reactor A {
+    output out1:int;
+    output out2:int;
+    reaction(startup) -> out1 {==}
+    reaction(startup) -> out2 {==} // When this triggers, out1 should still persist!
+}
+
+reactor B {
+    input in1:int;
+    input in2:int;
+    reaction(in1, in2) {==} // in1, in2 should both be present at (1, 0).
+}
+
+main reactor {
+    a = new A();
+    b = new B();
+    a.out1 -> b.in1 after 1 nsec;
+    a.out2 -> b.in2 after 1 nsec;
+}

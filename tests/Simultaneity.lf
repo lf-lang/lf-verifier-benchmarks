@@ -1,0 +1,17 @@
+target C;
+
+@property(name="test", tactic="bmc", spec="G[0, 2 sec](false)")
+main reactor {
+    logical action a(1 sec);
+    state x:int(0);
+    state y:int(0);
+    reaction(startup) -> a {=
+        lf_schedule(a, 0);
+    =}
+    reaction(a) {=
+        self->x = 1;
+    =}
+    reaction(a) {=
+        self->y = 2;
+    =}
+}

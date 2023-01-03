@@ -62,7 +62,7 @@ reactor Dashboard {
 
 // After the ADASProcessor receive data, the brake is actuated
 // before the next sensor data arrives.
-//@property(name="responsiveness", tactic="induction", spec="")
+@property(name="responsiveness", tactic="bmc", spec="G[0, 20 sec](false)")
 main reactor Vehicle {
     s = new Sensors();
     v = new ADASProcessor();

@@ -1,0 +1,342 @@
+// Find the open questions by searching
+// for FIXME or FIX in this file.
+/*******************************
+ * Auto-generated UCLID5 model *
+ ******************************/
+module main {
+    /*******************************
+     * Time and Related Operations *
+     ******************************/
+    type timestamp_t = integer;                     // The unit is nanoseconds
+    type microstep_t = integer;
+    type tag_t = {
+        timestamp_t,
+        microstep_t
+    };
+    type interval_t  = tag_t;
+    
+    // Projection macros
+    define pi1(t : tag_t) : timestamp_t = t._1;     // Get timestamp from tag
+    define pi2(t : tag_t) : microstep_t = t._2;     // Get microstep from tag
+    
+    // Interval constructor
+    define zero() : interval_t
+    = {0, 0};
+    define startup() : interval_t
+    = zero();
+    define mstep() : interval_t
+    = {0, 1};
+    define nsec(t : integer) : interval_t
+    = {t, 0};
+    define usec(t : integer) : interval_t
+    = {t * 1000, 0};
+    define msec(t : integer) : interval_t
+    = {t * 1000000, 0};
+    define sec(t : integer) : interval_t
+    = {t * 1000000000, 0};
+    define inf() : interval_t
+    = {-1, 0};
+    
+    // Helper function
+    define isInf(i : interval_t) : boolean
+    = pi1(i) < 0;
+    
+    // Tag comparison
+    define tag_later(t1 : tag_t, t2 : tag_t) : boolean
+    = pi1(t1) > pi1(t2)
+        || (pi1(t1) == pi1(t2) && pi2(t1) > pi2(t2))
+        || (isInf(t1) && !isInf(t2));
+    
+    define tag_same(t1 : tag_t, t2 : tag_t) : boolean
+    = t1 == t2;
+    
+    define tag_earlier(t1 : tag_t, t2 : tag_t) : boolean
+    = pi1(t1) < pi1(t2)
+        || (pi1(t1) == pi1(t2) && pi2(t1) < pi2(t2))
+        || (!isInf(t1) && isInf(t2));
+    
+    define tag_schedule(t : tag_t, i : integer) : tag_t
+    = if (i == 0) then { pi1(t), pi2(t)+1 } else { pi1(t)+i, 0 };
+    
+    // Only consider timestamp for now.
+    define tag_diff(t1, t2: tag_t) : interval_t
+    = if (!isInf(t1) && !isInf(t2))
+        then { pi1(t1) - pi1(t2), pi2(t1) - pi2(t2) }
+        else inf();
+    
+    /********************
+     * Trace Definition *
+     *******************/
+    const START : integer = 0; // The start index of the trace.
+    const END : integer = 2; // The end index of the trace (without padding)
+    const END_TRACE : integer = 5; // The end index of the trace with padding
+    
+    group indices : integer = {
+        0, 1, 2, 3, 4, 5
+    };
+    
+    // Define step and event types.
+    type step_t = integer;
+    type event_t = { rxn_t, tag_t, state_t, trigger_t, sched_t };
+    
+    // Create a bounded trace with length 2
+    // Potentially unbounded trace, we bound this later.
+    type trace_t  = [integer]event_t;
+    // Declare start time.
+    var start_time : timestamp_t;
+    
+    // Declare trace.
+    var trace : trace_t;
+    /*****************
+     * Helper Macros *
+     ****************/
+    // Helper macro that returns an element based on index.
+    define get(tr : trace_t, i : step_t) : event_t =
+    if (i >= START || i <= END_TRACE) then tr[i] else
+    { {false, false, false}, inf(), { 0, 0, 0 }, { false }, {false} };
+    define elem(i : step_t) : event_t
+    = get(trace, i);
+    
+    // projection macros
+    define rxn      (i : step_t) : rxn_t        = elem(i)._1;
+    define g        (i : step_t) : tag_t        = elem(i)._2;
+    define s        (i : step_t) : state_t      = elem(i)._3;
+    define t        (i : step_t) : trigger_t    = elem(i)._4;
+    define d        (i : step_t) : sched_t      = elem(i)._5;
+    define isNULL   (i : step_t) : boolean      = rxn(i) == {false, false, false};
+    /**********************************
+     * Reaction IDs & State Variables *
+     *********************************/
+    
+    //////////////////////////
+    // Application Specific
+    // Reactions
+    type rxn_t = {
+        boolean,	// reaction_0 of Simultaneity(level: 0)
+        boolean,	// reaction_1 of Simultaneity(level: 1)
+        boolean	// reaction_2 of Simultaneity(level: 2)
+    };
+    // Reaction projection macros
+    define Simultaneity_reaction_0(n : rxn_t) : boolean = n._1;
+    define Simultaneity_reaction_1(n : rxn_t) : boolean = n._2;
+    define Simultaneity_reaction_2(n : rxn_t) : boolean = n._3;
+    
+    // State variables and triggers
+    type state_t = {
+        integer,	// StateVariableInstance Simultaneity.x
+        integer,	// StateVariableInstance Simultaneity.y
+        integer	// org.lflang.generator.ActionInstance@42cc13a0
+    };
+    // State variable projection macros
+    define Simultaneity_x(s : state_t) : integer = s._1;
+    define Simultaneity_y(s : state_t) : integer = s._2;
+    define Simultaneity_a(s : state_t) : integer = s._3;
+    
+    // A boolean tuple indicating whether triggers are present.
+    type trigger_t = {
+        boolean	// org.lflang.generator.ActionInstance@42cc13a0
+    };
+    // Trigger presence projection macros
+    define Simultaneity_a_is_present(t : trigger_t) : boolean = t._1;
+    // A boolean tuple indicating whether actions are scheduled by reactions
+    // at the instant when reactions are triggered.
+    type sched_t = {
+        boolean	// org.lflang.generator.ActionInstance@42cc13a0
+    };
+    // Projection macros for action schedule flag
+    define Simultaneity_a_scheduled(d : sched_t) : boolean = d._1;
+    /*********************
+     * Reactor Semantics *
+     *********************/
+    // Non-federated "happened-before"
+    define hb(e1, e2 : event_t) : boolean
+    = tag_earlier(e1._2, e2._2)
+    ;
+    /** transition relation **/
+    // transition relation constrains future states
+    // based on previous states.
+    
+    // Events are ordered by "happened-before" relation.
+    axiom(finite_forall (i : integer) in indices :: (i >= START && i <= END) ==> (finite_forall (j : integer) in indices ::
+        (j >= START && j <= END) ==> (hb(elem(i), elem(j)) ==> i < j)));
+    
+    // Tags should be non-negative.
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END)
+        ==> pi1(g(i)) >= 0);
+    
+    // Microsteps should be non-negative.
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END)
+        ==> pi2(g(i)) >= 0);
+    
+    // Begin the frame at the start time specified.
+    define start_frame(i : step_t) : boolean =
+        (tag_same(g(i), {start_time, 0}) || tag_later(g(i), {start_time, 0}));
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END)
+        ==> start_frame(i));
+    
+    // NULL events should appear in the suffix, except for START.
+    axiom(finite_forall (j : integer) in indices :: (j > START && j <= END) ==> (
+        !isNULL(j)) ==> 
+            (finite_forall (i : integer) in indices :: (i > START && i < j) ==> (!isNULL(i))));
+    /***************
+     * Connections *
+     ***************/
+    /***********
+     * Actions *
+     ***********/
+    // If Simultaneity_a is present, these reactions could schedule it: Simultaneity_reaction_0, 
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END) ==> ( false
+    // Simultaneity_reaction_0
+    || (Simultaneity_a_is_present(t(i)) ==> (
+        finite_exists (j : integer) in indices :: j >= START && j < i
+        && Simultaneity_reaction_0(rxn(j))
+        && g(i) == tag_schedule(g(j), 1000000000)
+        && Simultaneity_a_scheduled(d(j))
+    ))
+    ));
+    // If Simultaneity_a  is not present, then its value resets to 0.
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END && !isNULL(i)) ==> (
+        (!Simultaneity_a_is_present(t(i)) ==> (
+            Simultaneity_a(s(i)) == 0
+        ))
+    ));
+    /********************************
+     * Reactions and Their Triggers *
+     ********************************/
+    // If startup is within frame (and all variables have default values),
+    // Simultaneity_reaction_0 must be invoked.
+    axiom(
+        ((start_time == 0) ==> (
+            finite_exists (i : integer) in indices :: i > START && i <= END
+                && Simultaneity_reaction_0(rxn(i)) && tag_same(g(i), zero())
+                && !(
+                finite_exists (j : integer) in indices :: j > START && j <= END
+                && Simultaneity_reaction_0(rxn(j))
+                && j != i
+                )
+        ))
+    );
+    // Simultaneity_reaction_1 is invoked when any of it triggers are present.
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END) ==> ((
+        false
+    || (Simultaneity_a_is_present(t(i)))
+    ) <==> (Simultaneity_reaction_1(rxn(i)))));
+    // Simultaneity_reaction_2 is invoked when any of it triggers are present.
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END) ==> ((
+        false
+    || (Simultaneity_a_is_present(t(i)))
+    ) <==> (Simultaneity_reaction_2(rxn(i)))));
+    // BAD FIX
+    /*
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END) ==> ((
+        false
+    || (Simultaneity_a_is_present(t(i)))
+    ) <==> (Simultaneity_reaction_1(rxn(i)) && Simultaneity_reaction_2(rxn(i)))));
+    */
+    /*********************
+     * Initial Condition *
+     *********************/
+    define initial_condition() : boolean
+    = start_time == 0
+        && isNULL(0)
+        && g(0) == {0, 0}
+        && Simultaneity_x(s(0)) == 0
+        && Simultaneity_y(s(0)) == 0
+        && Simultaneity_a(s(0)) == 0
+        && !Simultaneity_a_is_present(t(0))
+        && !Simultaneity_a_scheduled(d(0))
+    ;
+    /*************
+     * Reactions *
+     *************/
+    // Reaction body of reaction_0 of Simultaneity(level: 0)
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END) ==> (
+        (Simultaneity_reaction_0(rxn(i)))
+            ==> (((true ==> (
+    ((finite_exists (j : integer) in indices :: (j > i && j <= END_TRACE) && (
+        Simultaneity_a_is_present(t(j))
+        && tag_same(g(j), tag_schedule(g(i), 1000000000))
+        && Simultaneity_a(s(j)) == 0
+    )) // Closes finite_exists
+    && Simultaneity_a_scheduled(d(i))
+    )
+    )))
+    && ( true
+    // Default behavior of the used variables
+    && ((!(true)) ==> (
+    Simultaneity_a_scheduled(d(i)) == false
+    ))
+    // Unused state variables and ports reset by default.
+    && (true ==> (
+    Simultaneity_x(s(i)) == Simultaneity_x(s(i-1))
+    ))
+    && (true ==> (
+    Simultaneity_y(s(i)) == Simultaneity_y(s(i-1))
+    ))
+    ))));
+    // Reaction body of reaction_1 of Simultaneity(level: 1)
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END) ==> (
+        (Simultaneity_reaction_1(rxn(i)))
+            ==> (((true ==> ((Simultaneity_x(s(i)) == 1)
+    )))
+    && ( true
+    // FIXME
+    /*
+    // Default behavior of the used variables
+    && ((!(true)) ==> (
+    Simultaneity_x(s(i)) == Simultaneity_x(s(i-1))
+    ))
+    */
+    // Unused state variables and ports reset by default.
+    //// FIX
+    && (!Simultaneity_reaction_2(rxn(i)) ==> (
+    Simultaneity_y(s(i)) == Simultaneity_y(s(i-1))
+    ))
+    && (true ==> (
+    Simultaneity_a_scheduled(d(i)) == false
+    ))
+    ))));
+    // Reaction body of reaction_2 of Simultaneity(level: 2)
+    axiom(finite_forall (i : integer) in indices :: (i > START && i <= END) ==> (
+        (Simultaneity_reaction_2(rxn(i)))
+            ==> (((true ==> ((Simultaneity_y(s(i)) == 2)
+    )))
+    && ( true
+    // FIXME
+    // Default behavior of the used variables
+    /*
+    && ((!(true)) ==> (
+    Simultaneity_y(s(i)) == Simultaneity_y(s(i-1))
+    ))
+    */
+    // Unused state variables and ports reset by default.
+    // FIXME: What if two reactions modifying the same state variable
+    // are triggered at the same time?
+    // How to use axioms to model reaction priority?
+    //// FIX
+    && (!Simultaneity_reaction_1(rxn(i)) ==> (
+    Simultaneity_x(s(i)) == Simultaneity_x(s(i-1))
+    ))
+    && (true ==> (
+    Simultaneity_a_scheduled(d(i)) == false
+    ))
+    ))));
+    /************
+     * Property *
+     ************/
+    // The FOL property translated from user-defined MTL property:
+    // G[0, 2 sec](false)
+    define p(i : step_t) : boolean =
+        ((!(finite_exists (j0 : integer) in indices :: j0 >= i && j0 <= END && !isNULL(j0) && !(((false))) && (
+        // Time Predicate
+        (tag_later(g(j0), tag_schedule(g(i), 0)) || tag_same(g(j0), tag_schedule(g(i), 0))) && (tag_earlier(g(j0), tag_schedule(g(i), 2000000000)) || tag_same(g(j0), tag_schedule(g(i), 2000000000)))
+        ))));
+    // BMC
+    property bmc_test : initial_condition() ==> p(0);
+    control {
+        v = bmc(0);
+        check;
+        print_results;
+        v.print_cex;
+    }
+}

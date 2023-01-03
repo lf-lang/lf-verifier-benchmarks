@@ -1,0 +1,36 @@
+target C {
+    no-compile: true
+};
+
+reactor A {
+    output out:int;
+    physical action a;
+    reaction(a) -> out {=
+        lf_set(out, 1);
+    =}
+}
+
+reactor B {
+    input in:int;
+    input in2:int;
+    state send_time : time;
+    reaction(in2) {=
+        self->send_time = lf_time_logical();
+    =}
+    reaction(in) {=
+        // Want to receive in within 5 nsecs. 
+        time receive_time = lf_time_logical();
+        if (receive_time - self->send_time >= NSEC(5)) {
+            panic();
+        }
+    =}
+}
+
+
+@property(name="signal_received_within_5_nsec", tactic="induction", spec="Simple_a_reaction_0 ==> F[0,5 nsec]( Simple_b_in_is_present && Simple_b_in == 1 )")
+main reactor {
+    a = new A();
+    b = new B();
+    a.out -> b.in after 1 nsec;
+    a.out -> b.in2; // No delay.
+}

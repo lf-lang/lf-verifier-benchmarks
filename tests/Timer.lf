@@ -1,0 +1,14 @@
+target C;
+
+@property(name="test", tactic="bmc", spec="!(F[0, 10 sec](Timer_reaction_0))")
+main reactor {
+    state s:int;
+    timer t(0, 1 sec);
+    timer t2(500 msec, 800 msec); // Dangling timers block the solver.
+    reaction(t) {=
+        self->s = 1;
+    =}
+    reaction(t2) {=
+        self->s = 2;
+    =}
+}

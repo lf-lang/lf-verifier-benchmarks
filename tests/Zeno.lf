@@ -1,0 +1,8 @@
+target C;
+
+main reactor {
+    logical action a(0 sec);
+    reaction(startup, a) -> a {=
+        lf_schedule(a,0);
+    =}
+} 

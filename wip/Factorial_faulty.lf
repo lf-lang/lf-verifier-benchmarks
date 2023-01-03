@@ -1,0 +1,52 @@
+/**
+ * 1. Fix the CT bug (13 is correct. Currently shows 10.).
+ * 2. The feedback loop via ports blocks the model for some reason.
+ */
+
+target C {
+    timeout: 10 nsec
+}
+
+reactor Fib {
+    output out:int
+    input last:int
+    state N:int(0)
+    state result:int
+    state result2:int
+    state lastResult:int
+    state startValue:int
+    logical action start
+    logical action incrementN
+    reaction(startup) -> start {=
+        lf_schedule(start, 0);
+    =}
+    reaction(start, last) -> out, incrementN {=
+        if (self->N < 2) {
+            self->result = 1;
+        } else {
+            self->result = self->N * last->value;
+        }
+        lf_set(out, self->result);
+        lf_schedule(incrementN, 0);
+    =}
+    reaction(incrementN) {=
+        self->N += 1;
+    =}
+}
+
+reactor Printer {
+    input in:int
+    state result:int
+    reaction(in) {=
+        self->result = in->value;
+        // printf("%d\n", self->result);
+    =}
+}
+
+@property(name="test", tactic="bmc", spec="G[0, 3 nsec](false)")
+main reactor {
+    fib = new Fib()
+    printer = new Printer()
+    fib.out -> printer.in
+    fib.out -> fib.last after 1 nsec
+}

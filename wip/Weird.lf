@@ -1,0 +1,13 @@
+target C;
+
+reactor A {
+    output out:int;
+    reaction(startup) -> out {==}
+}
+
+main reactor {
+    a1 = new A()
+    a2 = new A()
+    logical action act;
+    reaction(a1.out, a2.out) -> act {==}
+}

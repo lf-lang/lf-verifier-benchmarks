@@ -1,0 +1,44 @@
+target C {
+    timeout: 10 nsec
+}
+
+reactor Fib {
+    output out:int
+    input last:int
+    input secondLast:int
+    state count:int(0)
+    logical action start
+    logical action addCount
+    reaction(startup) -> start {=
+        lf_schedule(start, 0);
+    =}
+    reaction(start, last, secondLast) -> out, addCount {=
+        if (self->count < 2) {
+            lf_set(out, 1);
+        } else {
+            lf_set(out, (last->value + secondLast->value));
+        }
+        lf_schedule(addCount, 0);
+    =}
+    reaction(addCount) {=
+        self->count += 1;
+    =}
+}
+
+reactor Printer {
+    input in:int
+    state result:int
+    reaction(in) {=
+        self->result = in->value;
+        // printf("%d\n", self->result);
+    =}
+}
+
+@property(name="test", tactic="bmc", spec="G[0, 10 nsec](false)")
+main reactor {
+    fib = new Fib()
+    printer = new Printer()
+    fib.out -> printer.in
+    fib.out -> fib.last after 1 nsec
+    fib.out -> fib.secondLast after 2 nsec
+}

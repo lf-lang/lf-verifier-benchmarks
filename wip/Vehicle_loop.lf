@@ -1,0 +1,89 @@
+target C;
+
+reactor Camera {
+    output out:int;
+    state img:int;
+    timer t(0, 17 msec); // 60 fps
+    reaction(t) -> out {= lf_set(out, self->img); =}
+}
+
+reactor LiDAR {
+    output out:int;
+    state img:int;
+    timer t(0, 34 msec); // 30 fps
+    reaction(t) -> out {= lf_set(out, self->img); =}
+}
+
+reactor Pedal {
+    output out:int;
+    physical action a;
+    reaction(a) -> out {= lf_set(out, true); =}
+}
+
+reactor ADASProcessor {
+    input in1:int;
+    input in2:int;
+    output out1:int;
+    output out2:int;
+    logical action a(50 msec);
+    state requestStop:int;
+    reaction(in2, in1) -> a {=
+        lf_schedule(a, 0);
+        // ... Perform neural network computation.
+    =}
+    reaction(a) -> out1, out2 {=
+        if (self->requestStop) lf_set(out, true);
+    =}
+}
+
+reactor Brakes {
+    input in1:int;
+    input in2:int;
+    state s:int;
+    reaction(in2, in1) {=
+        // ... Actuate the car brakes.
+        self->s = 0;
+    =}
+}
+
+reactor Sensors {
+    output out1:int;
+    output out2:int;
+    c = new Camera();
+    l = new LiDAR();
+    c.out -> out1;
+    l.out -> out2;
+}
+
+reactor Dashboard {
+    input in:int;
+    state s:int;
+    reaction(in) {=
+        self->s = 0;
+    =}
+}
+
+// After the ADASProcessor receive data, the brake is actuated
+// before the next sensor data arrives.
+@property(name="responsiveness", tactic="bmc", spec="G[0, 20 sec](false)")
+main reactor {
+    // s = new Sensors();
+    c = new Camera();
+    l = new LiDAR();
+    v = new ADASProcessor();
+    b = new Brakes();
+    p = new Pedal();
+    d = new Dashboard();
+    c.out -> v.in1;
+    l.out -> v.in2;
+    // The value of 500 usec needs to be arrived
+    // after rigorous testing such that, with
+    // the tech stack in use, the transmission
+    // time can never be SMALLER than 500 usec
+    // (i.e. the after delay is a lowerbound).
+    // The delay is placed here to minimize
+    // the lag and not to hurt performance.
+    p.out -> b.in1;
+    v.out2 -> b.in2 after 5 msec;
+    v.out1 -> d.in;
+}

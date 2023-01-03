@@ -1,0 +1,33 @@
+target C;
+
+reactor Source {
+    output out:int;
+    reaction(startup) -> out {=
+        lf_set(out, 1);
+    =}
+}
+
+reactor Sink {
+    input in1:int;
+    input in2:int;
+    state x:int;
+    state y:int;
+    // reaction(in1) {=
+    //     self->x = 1;
+    // =}
+    reaction(in2) {=
+        self->y = 2;
+    =}
+    reaction(in1, in2) {=
+        self->x = 0;
+        self->y = 0;
+    =}
+}
+
+@property(name="test", tactic="bmc", spec="false")
+main reactor {
+    source = new Source();
+    sink = new Sink();
+    source.out -> sink.in1;
+    source.out -> sink.in2;
+}

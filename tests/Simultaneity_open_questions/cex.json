@@ -1,0 +1,14 @@
+{
+  "property__bmc_test__0" : {
+    "length" : 1,
+    "trace" : [ {
+      "start_time" : [ "0" ],
+      "trace" : [ {
+        "0" : "(_tuple_0 (_tuple_1 false false false)\n          (_tuple_2 0 0)\n          (_tuple_3 0 0 0)\n          (_tuple_4 false)\n          (_tuple_4 false))",
+        "1" : "(_tuple_0 (_tuple_1 true false false)\n          (_tuple_2 0 0)\n          (_tuple_3 0 0 0)\n          (_tuple_4 false)\n          (_tuple_4 true))",
+        "5" : "(_tuple_0 (_tuple_1 false false false)\n          (_tuple_2 1000000000 0)\n          (_tuple_3 3 4 0)\n          (_tuple_4 true)\n          (_tuple_4 false))",
+        "-" : "(_tuple_0 (_tuple_1 false false true)\n          (_tuple_2 39 7720)\n          (_tuple_3 0 2 0)\n          (_tuple_4 false)\n          (_tuple_4 false))"
+      } ]
+    } ]
+  }
+}
