@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Benchmark directory
+bmark_dir=./benchmarks
+
+# Create a temporary folder if none exists.
+mkdir -p ./results
+
+# Create a file to store results.
+result_file=./results/result-$(date +"%Y-%m-%d-%T").txt
+echo "$result_file"
+
+# Clean the model-gen directory.
+rm -rf ./$bmark_dir/model-gen
+
+# Run benchmarks and collect results.
+for program_file in $bmark_dir/src/*.lf; do
+    # Get the program name without the extension from the file path.
+    program=${program_file:$((${#bmark_dir} + 5))} # prune $bmark_dir/src/ from path.
+    program=${program::${#program}-3}              # prune .lf from path.
+
+    echo "Benchmarking $program" 
+    echo "[$program]" >> $result_file
+
+    echo "*** Time for generating the Uclid model:" >> $result_file
+    # https://stackoverflow.com/questions/2408981/how-can-i-redirect-the-output-of-the-time-command
+    { time lfc --no-verify $program_file; } 2>> $result_file
+    echo -e "\n" >> $result_file
+
+    echo "*** Time for generating SMT from Uclid:" >> $result_file
+    { time uclid -g "$bmark_dir/model-gen/$program/smt" $bmark_dir/model-gen/$program/*.ucl; } 2>> $result_file
+    echo -e "\n" >> $result_file
+
+    echo "*** Time for solving SMT using Z3:" >> $result_file
+    z3 $bmark_dir/model-gen/$program/*.smt >> $result_file
+    echo -e "\n" >> $result_file
+
+    echo -e "----------------------------\n" >> $result_file
+done
