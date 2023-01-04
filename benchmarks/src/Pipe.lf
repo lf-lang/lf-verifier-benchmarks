@@ -45,8 +45,8 @@ reactor Sink {
     =}
 }
 
-@property(name="test", tactic="bmc", spec="G[0, 1 sec](false)")
-// @property(name="received", tactic="bmc", spec="G[0, 1 sec](!(Pipe_node1_count <= 1 && Pipe_node2_count <= 1 && Pipe_node3_count <= 1 && Pipe_node4_count <= 1 && Pipe_node5_count <= 1))")
+// @property(name="test", tactic="bmc", spec="G[0, 1 sec](false)")
+@property(name="count_bounded", tactic="bmc", spec="G[0, 1 sec](!(Pipe_node1_count <= 1 && Pipe_node2_count <= 1 && Pipe_node3_count <= 1 && Pipe_node4_count <= 1 && Pipe_node5_count <= 1))")
 main reactor {
     
     source = new Source();

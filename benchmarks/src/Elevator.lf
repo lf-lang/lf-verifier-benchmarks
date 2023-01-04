@@ -76,14 +76,14 @@ The controller is supposed to satisfy the following safety requirements:
 
 R1  The elevator shall move only when the door is closed and the stop switch 
     is off.
-R2  The elevator shall not try to pass the end positions
+R2  [Not applicable for this implementation] The elevator shall not try to pass the end positions
     (that is, try go through the roof or the floor).
-R3  A moving elevator shall halt only if the stop switch is on, or the door 
+R3  [Not applicable for this implementation] A moving elevator shall halt only if the stop switch is on, or the door 
     is open, or the elevator has arrived at the destination floor.
-R4  The elevator shall halt before changing direction.
+R4  [Not applicable for this implementation] The elevator shall halt before changing direction.
 R5  The signals sent to the motor shall not be contradictory.
 R6  The elevator shall move when it should. 
-R7  The elevator shall stay on a floor indefinitely 
+R7  [Not a safety property] The elevator shall stay on a floor indefinitely 
     while there is no call to the other floor.
 */
 target C
@@ -146,11 +146,11 @@ reactor Control {
     // is set to close.
     reaction(Stop) -> DoorCommand {=
         if (self->StopPressed == 0) {
-            self->StopPressed = 1;
+            self->StopPressed = 1; // FIXME: Factor this in a separate reaction.
             lf_set(DoorCommand, 1); // Open door
         }
         else {
-            self->StopPressed = 0;
+            self->StopPressed = 0; // FIXME: Factor this in a separate reaction.
             lf_set(DoorCommand, 0); // Close door
         }
     =}
@@ -203,17 +203,19 @@ reactor Simulator {
         lf_set(Stop, 1);
     =}
 
+    // FIXME: This should be refactored into Control.
     reaction(MotorUp, MotorDown) -> MotorDone {=
         if (MotorUp->is_present && !MotorDown->is_present) {
-            self->direction = 1;
+            self->direction = 1; // Trigger the motor
             lf_schedule(MotorDone, 0);
         } 
         else if (MotorDown->is_present && !MotorUp->is_present) {
-            self->direction = -1;
+            self->direction = -1; // Trigger the motor
             lf_schedule(MotorDone, 0);
         }
     =}
 
+    // FIXME: This should be refactored into Control.
     reaction(MotorDone) -> ReachFloor, ResetDirection {=
         if (self->direction == 1)
             lf_set(ReachFloor, 2);
@@ -229,6 +231,7 @@ reactor Simulator {
         self->direction = 0;
     =}
 
+    // FIXME: This should be refactored into Control.
     reaction(DoorCommand) -> CheckDoor {=
         self->doorStatus = DoorCommand->value;
         lf_schedule(CheckDoor, 0);
@@ -240,7 +243,8 @@ reactor Simulator {
     =}
 }
 
-@property(name="test", tactic="bmc", spec="G[0, 5 sec](false)")
+// @property(name="test", tactic="bmc", spec="G[0, 5 sec](false)")
+@property(name="moves_when_safe", tactic="bmc", spec="G[0, 15 sec]((Elevator_s_reaction_3 && (Elevator_s_direction != 0)) ==> (Elevator_s_doorStatus == 0 && Elevator_c_StopPressed == 0))")
 main reactor {
     c = new Control()
     s = new Simulator()    

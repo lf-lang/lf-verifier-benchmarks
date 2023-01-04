@@ -55,7 +55,7 @@ reactor RSU {
     =}
     
     reaction(request_1, request_2) -> issue_grant_1, issue_grant_2 {=
-        info_print("Responding to a request.");
+        // info_print("Responding to a request.");
         if (self->current_time > self->available_time) {
             // Give priority to vehicle 1.
             if (request_1->is_present)
@@ -68,12 +68,12 @@ reactor RSU {
     
     reaction(issue_grant_1) -> grant_1 {=
         lf_set(grant_1, 1);
-        info_print("RSU: grants the right of way to vehicle %d.", issue_grant->value);
+        // info_print("RSU: grants the right of way to vehicle %d.", issue_grant->value);
     =}
 
     reaction(issue_grant_2) -> grant_2 {=
         lf_set(grant_2, 1);
-        info_print("RSU: grants the right of way to vehicle %d.", issue_grant->value);
+        // info_print("RSU: grants the right of way to vehicle %d.", issue_grant->value);
     =}
     
     reaction(done_1, done_2) {=
@@ -84,7 +84,8 @@ reactor RSU {
     =}
 }
 
-@property(name="test", tactic="bmc", spec="G[0, 1 nsec](false)")
+// @property(name="test", tactic="bmc", spec="G[0, 1 nsec](false)")
+@property(name="mutual_exclusion", tactic="bmc", spec="G[0, 10 sec](!(RoadsideUnit_v1_grant == 1 && RoadsideUnit_v2_grant == 1))")
 main reactor {
     
     v1 = new Vehicle()

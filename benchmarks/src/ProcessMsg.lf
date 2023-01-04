@@ -5,11 +5,12 @@ reactor Task {
     output out:int
 
     state messageSent:int
-    state messageReceived:int
     state counter:int(0)
     state panic:int(0)
 
     timer t(0, 1 nsec)
+
+    logical action updateMessage
 
     reaction(startup) {=
         self->messageSent = 0;
@@ -17,18 +18,22 @@ reactor Task {
     reaction(t) -> out {=
         lf_set(out, self->messageSent);
     =}
-    reaction(in) {=
+    reaction(in) -> updateMessage {=
         /* Check for invalid message.  */
         if (in->value != self->messageSent) {
             self->panic = 1;
         }
-
+        lf_schedule(updateMessage, 0);
+        self->counter += 1;
+    =}
+    reaction(updateMessage) {=
         /* Increment the last word of the 16-byte message.  */
         self->messageSent += 1;
     =}
 }
 
-@property(name="test", tactic="bmc", spec="G[0, 5 nsec](false)")
+// @property(name="test", tactic="bmc", spec="G[0, 5 nsec](false)")
+@property(name="panic_free", tactic="bmc", spec="G[5 nsec](ProcessMsg_task_panic != 1)")
 main reactor {
     task = new Task()
     task.out -> task.in

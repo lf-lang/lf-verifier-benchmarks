@@ -15,12 +15,18 @@ reactor _TrafficLight {
     logical action resetCount
     timer t(0, 1 sec)
     
+    reaction(startup) {=
+        self->_mode = 0;
+        self->count = 58;
+    =}
     reaction(t) pedestrian -> sigR, sigG, sigY, resetCount {=
         // RED
         if (self->_mode == 0) {
             if (self->count >= 60) {
                 lf_set(sigG, 1);
                 lf_schedule(resetCount, 0);
+                // A real bug:
+                // _mode is not changed.
             } else {
                 self->count += 1;
             }
@@ -64,13 +70,14 @@ reactor _TrafficLight {
 
 reactor Pedestrian {
     output out:int
-    timer t(0, 10 sec)
+    timer t(1 sec, 10 sec)
     reaction(t) -> out {=
         lf_set(out, 1);
     =}
 }
 
-@property(name="test", tactic="bmc", spec="G[0, 11 sec](false)")
+// @property(name="test", tactic="bmc", spec="G[0, 11 sec](false)")
+@property(name="green_reachable", tactic="bmc", spec="F[0, 5 sec](TrafficLight_t__mode == 1)")
 main reactor {
     t = new _TrafficLight()
     p = new Pedestrian()

@@ -20,13 +20,13 @@ reactor LiDAR {
     =}
 }
 
-reactor Pedal {
-    output out:int;
-    physical action a;
-    reaction(a) -> out {=
-        lf_set(out, 1);
-    =}
-}
+// reactor Pedal {
+//     output out:int;
+//     physical action a;
+//     reaction(a) -> out {=
+//         lf_set(out, 1);
+//     =}
+// }
 
 reactor ADASProcessor {
     input in1:int;

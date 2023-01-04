@@ -22,13 +22,13 @@ reactor Task {
     state counter:int(0);
 
     reaction(cnt) {=
-        self->counter += 1;
+        self->counter += 2; // Should be 1.
     =}
 }
 
 // FIXME: why does G[0, 1 usec](false) block the model
 // and G[0, 2 usec](false) doesn't?
-@property(name="test", tactic="bmc", spec="G[0, 2 usec](false)")
+@property(name="upperbound", tactic="bmc", spec="G[0, 2 usec]((CoopSchedule_task1_counter + CoopSchedule_task2_counter + CoopSchedule_task3_counter + CoopSchedule_task4_counter + CoopSchedule_task5_counter) <= 15)")
 main reactor {
     trigger = new Trigger()
     // tasks = new[5] Task();

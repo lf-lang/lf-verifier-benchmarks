@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Benchmark directory
-bmark_dir=./benchmarks
+bmark_dir=$1
 
 # Create a temporary folder if none exists.
 mkdir -p ./results
