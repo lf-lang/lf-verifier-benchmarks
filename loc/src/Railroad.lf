@@ -1,0 +1,115 @@
+target C
+reactor Train {
+    input signal:int // 0 = GREEN, 1 = RED
+    output out:int   // 0 = ARRIVE, 1 = LEAVE
+    state _out:int(0)
+    state _mode:int(0)  // 0 = AWAY, 1 = WAIT, 2 = BRIDGE
+    timer t(1 nsec, 1 sec)
+    logical action outUpdated
+    logical action toModeAway
+    logical action toModeWait
+    logical action toModeBridge
+    reaction(startup) {=
+        self->_mode = 0;
+    =}
+    reaction(t) -> out, outUpdated {=
+        if (self->_mode == 0) {
+            lf_set(out, 0);
+            self->_out = 0;
+            lf_schedule(outUpdated, 0);
+        }
+        else if (self->_mode == 2) {
+            lf_set(out, 1);
+            self->_out = 1;
+            lf_schedule(outUpdated, 0);
+        }
+    =}
+    reaction(outUpdated, signal) -> toModeAway, toModeWait, toModeBridge {=
+        if (self->_mode == 0) {
+            if (outUpdated->is_present
+                && self->_out == 0) {
+                lf_schedule(toModeWait, 0);
+            }
+        }
+        else if (self->_mode == 1) {
+            if (signal->is_present
+                && signal->value == 0) {
+                lf_schedule(toModeBridge, 0);
+            }
+        }
+        else {
+            if (outUpdated->is_present
+                && self->_out == 1) {
+                lf_schedule(toModeAway, 0);
+            }
+        }
+    =}
+    reaction(toModeAway) {=
+        self->_mode = 0;
+    =}
+    reaction(toModeWait) {=
+        self->_mode = 1;
+    =}
+    reaction(toModeBridge) {=
+        self->_mode = 2;
+    =}
+}
+
+reactor Controller {
+    input out_w:int
+    input out_e:int
+    output signal_w:int
+    output signal_e:int
+    state west:int  // 0 = GREEN, 1 = RED
+    state east:int  // 0 = GREEN, 1 = RED 
+    state near_w:int
+    state near_e:int
+    logical action westUpdated
+    logical action eastUpdated
+    reaction(startup) {=
+        self->west = 1;
+        self->east = 1;
+        self->near_w = 0;
+        self->near_e = 0;
+    =}
+    reaction(out_w, out_e) -> westUpdated, eastUpdated {=
+        if (out_e->is_present && out_e->value == 0) {
+            self->near_e = 1;
+        }
+        if (out_e->is_present && out_e->value == 1) {
+            self->near_e = 0;
+        }
+        if (out_w->is_present && out_w->value == 0) {
+            self->near_w = 1;
+        }
+        if (out_w->is_present && out_w->value == 1) {
+            self->near_w = 0;
+        }
+        if (self->near_e != 1) {
+            self->east = 1;
+        } else if (self->west == 1) {
+            self->east = 0;
+        }
+        if (self->near_w != 1) {
+            self->west = 1;
+        } else if (self->east == 1) {
+            self->west = 0;
+        }
+    =}
+    reaction(westUpdated) -> signal_w {=
+        lf_set(signal_w, self->west);
+    =}
+    reaction(eastUpdated) -> signal_e {=
+        lf_set(signal_e, self->east);
+    =}
+}
+@property(name="TrainSafety", tactic="bmc", spec="G[0, 5 sec](!(Railroad_train_w__mode == 2 && Railroad_train_e__mode == 2))", CT=20)
+main reactor {
+    train_w = new Train()
+    train_e = new Train()
+    controller = new Controller()
+    train_w.out -> controller.out_w
+    train_e.out -> controller.out_e
+    controller.signal_w -> train_w.signal
+    controller.signal_e -> train_e.signal
+}

@@ -1,0 +1,39 @@
+target C {
+    fast: true
+}
+reactor Ping {
+    input receive: int
+    output send: int
+    state pingsLeft: int(10)
+    logical action serve(1 nsec)
+    reaction(startup) -> serve {=
+        self->pingsLeft = 10;
+        lf_schedule(serve, 0);
+    =}
+    reaction(serve) -> send {=
+        lf_set(send, self->pingsLeft);
+        self->pingsLeft -= 1;
+    =}
+    reaction(receive) -> serve {=
+        if (self->pingsLeft > 0) {
+            lf_schedule(serve, 0);
+        }
+    =}
+}
+reactor Pong {
+    input receive: int
+    output send: int
+    state count: int(0)
+    state expected: int(10)
+    reaction(receive) -> send {=
+        self->count += 1;
+        lf_set(send, receive->value);
+    =}
+}
+@property(name="test", tactic="bmc", spec="G[0, 5 nsec](false)")
+main reactor PingPong {
+    ping = new Ping()
+    pong = new Pong()
+    ping.send -> pong.receive
+    pong.send -> ping.receive
+}

@@ -1,0 +1,118 @@
+target C
+reactor Control {
+    input Call1:int
+    input Call2:int
+    input Stop:int
+    input ReachFloor:int
+    input DoorStatus:int
+    output MotorUp:int
+    output MotorDown:int
+    output DoorCommand:int
+    state Floor:int
+    state DoorIsOpen:int
+    state StopPressed:int
+    state direction:int // 1 = UP, -1 = DOWN, 0 = NOT MOVING
+    reaction(Call1) -> MotorDown, DoorCommand {=
+        if ((!(self->StopPressed == 1) && !(self->DoorIsOpen == 1)) // CanMove
+            && self->Floor != 1
+            && self->direction == 0)
+        {
+            lf_set(DoorCommand, 0);
+            lf_set(MotorDown, 1);
+        }
+    =}
+    reaction(Call2) -> MotorUp, DoorCommand {=
+        if ((!(self->StopPressed == 1) && !(self->DoorIsOpen == 1)) // CanMove
+            && self->Floor != 2
+            && self->direction == 0)
+        {
+            lf_set(DoorCommand, 0); // [Danger!] Same as above
+            lf_set(MotorUp, 1);
+        }
+    =}
+    reaction(Stop) -> DoorCommand {=
+        if (self->StopPressed == 0) {
+            self->StopPressed = 1; // FIXME: Factor this in a separate reaction.
+            lf_set(DoorCommand, 1); // Open door
+        }
+        else {
+            self->StopPressed = 0; // FIXME: Factor this in a separate reaction.
+            lf_set(DoorCommand, 0); // Close door
+        }
+    =}
+    reaction(ReachFloor) -> DoorCommand {=
+        self->Floor = ReachFloor->value;
+        lf_set(DoorCommand, 1); // Open door
+    =}
+    reaction(DoorStatus) {=
+        self->DoorIsOpen = DoorStatus->value;
+    =}
+}
+reactor Simulator {
+    output Call1:int
+    output Call2:int
+    output Stop:int
+    output DoorStatus:int
+    output ReachFloor:int
+    input MotorUp:int
+    input MotorDown:int
+    input DoorCommand:int
+    timer Call1Pressed(0, 15 sec)
+    timer Call2Pressed(5 sec, 15 sec)
+    timer StopPressed(10 sec, 15 sec)
+    logical action MotorDone(4 sec)
+    logical action CheckDoor(2 sec)
+    logical action ResetDirection
+    state direction:int(0)  // 1 = UP, -1 = DOWN, 0 = NOT MOVING
+    state doorStatus:int(0) // 1 = OPEN, 0 = CLOSED
+    reaction(Call1Pressed) -> Call1 {=
+        lf_set(Call1, 1);
+    =}
+    reaction(Call2Pressed) -> Call2 {=
+        lf_set(Call2, 1);
+    =}
+    reaction(StopPressed) -> Stop {=
+        lf_set(Stop, 1);
+    =}
+    reaction(MotorUp, MotorDown) -> MotorDone {=
+        if (MotorUp->is_present && !MotorDown->is_present) {
+            self->direction = 1; // Trigger the motor
+            lf_schedule(MotorDone, 0);
+        } 
+        else if (MotorDown->is_present && !MotorUp->is_present) {
+            self->direction = -1; // Trigger the motor
+            lf_schedule(MotorDone, 0);
+        }
+    =}
+    reaction(MotorDone) -> ReachFloor, ResetDirection {=
+        if (self->direction == 1)
+            lf_set(ReachFloor, 2);
+        else if (self->direction == -1)
+            lf_set(ReachFloor, 1);
+
+        lf_schedule(ResetDirection, 0);
+    =}
+    reaction(ResetDirection) {=
+        self->direction = 0;
+    =}
+    reaction(DoorCommand) -> CheckDoor {=
+        self->doorStatus = DoorCommand->value;
+        lf_schedule(CheckDoor, 0);
+    =}
+    reaction(CheckDoor) -> DoorStatus {=
+        lf_set(DoorStatus, self->doorStatus);
+    =}
+}
+@property(name="moves_when_safe", tactic="bmc", spec="G[0, 15 sec]((Elevator_s_reaction_3 && (Elevator_s_direction != 0)) ==> (Elevator_s_doorStatus == 0 && Elevator_c_StopPressed == 0))")
+main reactor {
+    c = new Control()
+    s = new Simulator()    
+    c.MotorUp -> s.MotorUp
+    c.MotorDown -> s.MotorDown
+    c.DoorCommand -> s.DoorCommand
+    s.Call1 -> c.Call1
+    s.Call2 -> c.Call2
+    s.Stop -> c.Stop
+    s.ReachFloor -> c.ReachFloor
+    s.DoorStatus -> c.DoorStatus
+}
