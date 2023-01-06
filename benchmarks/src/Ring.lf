@@ -32,7 +32,7 @@ reactor Node {
 }
 
 // @property(name="test", tactic="bmc", spec="G[0, 10 nsec](false)")
-@property(name="full_circle", tactic="bmc", spec="F[0, 10](Ring_s_reaction_2)")
+@property(name="full_circle", tactic="bmc", spec="F[0, 10 nsec](Ring_s_reaction_2)")
 main reactor {
     s = new Source()
     n1 = new Node()
