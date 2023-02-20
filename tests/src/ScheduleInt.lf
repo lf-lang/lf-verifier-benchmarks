@@ -1,0 +1,17 @@
+target C;
+
+@property(name="success", tactic="bmc", spec="!(F[0, 1 sec](ScheduleInt_success == 1))")
+main reactor {
+    logical action a:int
+    state success:int
+    reaction(startup) -> a {=
+        lf_schedule_int(a, 0, 42);
+    =}
+    reaction(a) {=
+        if (a->value == 42) {
+            self->success = 1;
+        } else {
+            self->success = 0;
+        }
+    =}
+}

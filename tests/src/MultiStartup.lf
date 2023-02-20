@@ -1,0 +1,21 @@
+target C
+
+reactor A {
+    state s:int(0)
+    reaction(startup) {=
+        self->s = 1;
+    =}
+}
+
+reactor B {
+    state s:int(0)
+    reaction(startup) {=
+        self->s = 2;
+    =}
+}
+
+@property(name="test", tactic="bmc", spec="G[0, 1 sec](false)")
+main reactor {
+    a = new A()
+    b = new B()
+}

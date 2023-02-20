@@ -1,0 +1,15 @@
+target C 
+
+@property(name="test", tactic="bmc", spec="G[0, 2 sec](false)")
+main reactor {
+    timer t1(0, 1 sec)
+    timer t2(0, 1 sec)
+    logical action a(50 msec)
+    state s:int(0)
+    reaction(t1) -> a {=
+        self->s += 1;
+    =}
+    reaction(t2) -> a {=
+        self->s += 1;
+    =}
+}
