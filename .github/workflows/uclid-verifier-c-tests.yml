@@ -19,10 +19,10 @@ jobs:
         platform: [ubuntu-latest]
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Check out lf-verifer-benchmarks repository
+      - name: Check out lf-verifier-benchmarks repository
         uses: actions/checkout@v3
         with:
-          path: lf-verifer-benchmarks
+          path: lf-verifier-benchmarks
       - name: Check out lingua-franca repository
         uses: actions/checkout@v3
         with:
