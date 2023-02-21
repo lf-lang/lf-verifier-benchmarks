@@ -63,5 +63,5 @@ jobs:
           uclid --version
       - name: Run the test script
         run: |
-          cd ../lf-verifer-benchmarks
+          cd lf-verifer-benchmarks
           ./scripts/test-lf-verifier
