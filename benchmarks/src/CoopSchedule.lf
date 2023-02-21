@@ -26,7 +26,7 @@ reactor Task {
     =}
 }
 
-@property(name="upperbound", tactic="bmc", spec="G[0, 1 usec]((CoopSchedule_task1_counter + CoopSchedule_task2_counter + CoopSchedule_task3_counter + CoopSchedule_task4_counter + CoopSchedule_task5_counter) < 15)")
+@property(name="upperbound", tactic="bmc", spec="G[0, 1 usec]((CoopSchedule_task1_counter + CoopSchedule_task2_counter + CoopSchedule_task3_counter + CoopSchedule_task4_counter + CoopSchedule_task5_counter) < 15)", expect=false)
 main reactor {
     trigger = new Trigger()
     // tasks = new[5] Task();

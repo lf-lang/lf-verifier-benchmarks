@@ -80,7 +80,7 @@ reactor Node2 {
     =}
 }
 
-@property(name="exactly_one_elected", tactic="bmc", spec="F[0, 20 msec]((Election_i0_elected + Election_i1_elected + Election_i2_elected) == 1)")
+@property(name="exactly_one_elected", tactic="bmc", spec="F[0, 20 msec]((Election_i0_elected + Election_i1_elected + Election_i2_elected) == 1)", expect=true)
 main reactor {
     i0 = new Node0()
     i1 = new Node1()

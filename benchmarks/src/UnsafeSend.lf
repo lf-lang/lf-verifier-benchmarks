@@ -61,7 +61,7 @@ reactor Server {
     =}
 }
 
-@property(name="success", tactic="bmc", spec="(F[0, 5 nsec](UnsafeSend_c_reaction_1))")
+@property(name="success", tactic="bmc", spec="(F[0, 5 nsec](UnsafeSend_c_reaction_1))", expect=false)
 main reactor {
     c = new Client();
     s = new Server();

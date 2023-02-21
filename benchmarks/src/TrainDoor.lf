@@ -25,7 +25,7 @@ reactor Door {
     =}
 }
 
-@property(name="train_does_not_move_until_door_closes", tactic="bmc", spec="(!TrainDoor_t_reaction_0)U[0, 1 sec](TrainDoor_d_reaction_0)")
+@property(name="train_does_not_move_until_door_closes", tactic="bmc", spec="(!TrainDoor_t_reaction_0)U[0, 1 sec](TrainDoor_d_reaction_0)", expect=false)
 main reactor {
     c = new Controller();
     t = new Train();
@@ -33,10 +33,3 @@ main reactor {
     c.out1 -> t.in after 1 sec;
     c.out2 -> d.in after 1 sec;
 }
-
-// A bunch of failed attempts here.
-// FIXME: Why do these fail?
-// @property(name="test", tactic="bmc", spec="X[0](X[1 sec]((TrainDoor_t_reaction_0)))")
-// @property(name="train_does_not_move_until_door_closes", tactic="bmc", spec="(G[0, 1 sec](TrainDoor_c_reaction_0 ==> F[1 sec]( (TrainDoor_d_reaction_0))))")
-// @property(name="train_does_not_move_until_door_closes", tactic="bmc", spec="(X[0](TrainDoor_c_reaction_0 ==> (F[1 sec]( (!TrainDoor_t_reaction_0) U[0] (TrainDoor_d_reaction_0) ))))")
-

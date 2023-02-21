@@ -20,14 +20,6 @@ reactor LiDAR {
     =}
 }
 
-// reactor Pedal {
-//     output out:int;
-//     physical action a;
-//     reaction(a) -> out {=
-//         lf_set(out, 1);
-//     =}
-// }
-
 reactor ADASProcessor {
     input in1:int;
     input in2:int;
@@ -64,7 +56,7 @@ reactor Dashboard {
     =}
 }
 
-@property(name="responsive", tactic="bmc", spec="G[0, 1 msec]( ADAS_v_reaction_0 ==> (F[0, 100 msec]( ADAS_b_reaction_0 )))")
+@property(name="responsive", tactic="bmc", spec="G[0, 1 msec]( ADAS_v_reaction_0 ==> (F[0, 100 msec]( ADAS_b_reaction_0 )))", expect=true)
 main reactor {
     c = new Camera();
     l = new LiDAR();
@@ -76,12 +68,3 @@ main reactor {
     v.out2 -> b.in2 after 5 msec; // Changing 5 msec to 5 sec blows up the CT.
     v.out1 -> d.in;
 }
-
-//// Pedal uses physical action, which is not supported yet.
-// p = new Pedal();
-// p.out -> b.in1;  
-
-// @property(name="test", tactic="bmc", spec="false")
-// FIXME: Why doesn't below work?
-// @property(name="responsive", tactic="bmc", spec="G[0, 10 sec](( ADAS_v_reaction_0 && F[50 msec]( ADAS_b_reaction_0 )) ==> (F[0, 100 msec](ADAS_b_reaction_0)) )")
-

@@ -41,7 +41,7 @@ reactor Printer {
 }
 
 // @property(name="test", tactic="bmc", spec="G[0, 5 nsec](false)")
-@property(name="correctness", tactic="bmc", spec="G[10 nsec](Factorial_printer_reaction_0 ==> Factorial_printer_result == 3628800)")
+@property(name="correctness", tactic="bmc", spec="G[10 nsec](Factorial_printer_reaction_0 ==> Factorial_printer_result == 3628800)", expect=true)
 main reactor {
     factorial = new _Factorial()
     printer = new Printer()

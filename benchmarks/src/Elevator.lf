@@ -244,7 +244,7 @@ reactor Simulator {
 }
 
 // @property(name="test", tactic="bmc", spec="G[0, 5 sec](false)")
-@property(name="moves_when_safe", tactic="bmc", spec="G[0, 15 sec]((Elevator_s_reaction_3 && (Elevator_s_direction != 0)) ==> (Elevator_s_doorStatus == 0 && Elevator_c_StopPressed == 0))")
+@property(name="moves_when_safe", tactic="bmc", spec="!(G[0, 15 sec]((Elevator_s_reaction_3 && (Elevator_s_direction != 0)) ==> (Elevator_s_doorStatus == 0 && Elevator_c_StopPressed == 0)))", CT=15, expect=true)
 main reactor {
     c = new Control()
     s = new Simulator()    
