@@ -59,6 +59,8 @@ jobs:
           unzip uclid-0.9.5.zip
           export PATH="$(pwd)/uclid-0.9.5/bin:$PATH"
           uclid --version
+      - name: Setup upterm session
+        uses: lhotari/action-upterm@v1
       - name: Run the test script
         run: |
           cd lf-verifier-benchmarks
