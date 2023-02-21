@@ -48,11 +48,25 @@ jobs:
           ./bin/build-lf-cli
           ./bin/lfc --version
           echo "$(pwd)/bin" >> $GITHUB_PATH
-      - name: Install Z3 and Uclid5
+      - name: Cache Z3
+        id: cache-z3
+        uses: actions/cache@v3
+        with:
+          path: z3/
+          key: ${{ runner.os }}-z3-${{ hashFiles('uclid/get-z3-linux.sh') }}-1
+      - name: Download Z3
+        if: steps.cache-z3.outputs.cache-hit != 'true'
+        run: ./uclid/get-z3-linux.sh
+      - name: Add Z3 to Path
+        run: |
+          ls $GITHUB_WORKSPACE/z3/bin/
+          echo "$GITHUB_WORKSPACE/z3/bin/" >> $GITHUB_PATH
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GITHUB_WORKSPACE/z3/bin/" >> $GITHUB_ENV
+      - name: Print Z3 Version
+        run: z3 --version
+      - name: Install Uclid5
         run: |
           cd uclid
-          ./get-z3-linux.sh
-          ./setup-z3-linux.sh
           sbt update clean compile
           sbt universal:packageBin
           cd target/universal/
