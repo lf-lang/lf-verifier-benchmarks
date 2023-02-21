@@ -46,8 +46,8 @@ jobs:
         run: |
           cd lingua-franca
           ./bin/build-lf-cli
-          export PATH="$(pwd)/bin:$PATH"
-          lfc --version
+          ./bin/lfc --version
+          echo "$(pwd)/bin" >> $GITHUB_PATH
       - name: Install Z3 and Uclid5
         run: |
           cd uclid
@@ -57,8 +57,8 @@ jobs:
           sbt universal:packageBin
           cd target/universal/
           unzip uclid-0.9.5.zip
-          export PATH="$(pwd)/uclid-0.9.5/bin:$PATH"
-          uclid --version
+          ./uclid-0.9.5/bin/uclid --help
+          echo "$(pwd)/uclid-0.9.5/bin" >> $GITHUB_PATH
       - name: Setup upterm session
         uses: lhotari/action-upterm@v1
       - name: Run the test script
