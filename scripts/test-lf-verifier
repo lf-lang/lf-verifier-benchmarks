@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# exit when any command fails
+set -e
+
+# keep track of the last executed command
+trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
+# echo an error message before exiting
+trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
+
+# Get the scripts directory
+scripts_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+# Test directories
+# Note: properties in these directories
+# must specify the "expect" field for
+# the test script to work properly.
+test_dir_array=(
+    $scripts_dir/../benchmarks
+)
+
+# Run benchmarks and collect results.
+for test_dir in "${test_dir_array[@]}"; do
+    for program_file in $test_dir/src/*.lf; do
+        lfc $program_file
+    done
+done
