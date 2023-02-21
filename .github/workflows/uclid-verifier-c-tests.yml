@@ -21,6 +21,7 @@ jobs:
     steps:
       - name: Check out lf-verifer-benchmarks repository
         uses: actions/checkout@v3
+        with:
           path: lf-verifer-benchmarks
       - name: Check out lingua-franca repository
         uses: actions/checkout@v3
