@@ -27,7 +27,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: lf-lang/lingua-franca
+          submodules: true
           ref: verifier
+          fetch-depth: 0
           path: lingua-franca
       - name: Check out Uclid5 repository
         uses: actions/checkout@v3
@@ -35,15 +37,19 @@ jobs:
           repository: uclid-org/uclid
           ref: 4fd5e566c5f87b052f92e9b23723a85e1c4d8c1c
           path: uclid
-      - name: Set up JDK 17 (for LF) and 11 (for Uclid5)
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: |
-            11
-            17
+          java-version: 17
       - name: Setup upterm session
         uses: lhotari/action-upterm@v1
+      - name: Build Lingua Franca
+        run: |
+          cd lingua-franca
+          ./bin/build-lf-cli
+          export PATH="$(pwd)/bin:$PATH"
+          lfc --version
       - name: Install Z3 and Uclid5
         run: |
           cd uclid
