@@ -42,9 +42,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: 17
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
-      - name: Build Lingua Franca
+      - name: Install Lingua Franca
         run: |
           cd lingua-franca
           ./bin/build-lf-cli
