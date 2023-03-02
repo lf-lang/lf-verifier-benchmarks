@@ -50,5 +50,8 @@ RUN uclid --help
 # Clone LF verifier benchmarks.
 RUN git clone https://github.com/lsk567/lf-verifier-benchmarks.git
 
+# Configure JVM
+ENV _JAVA_OPTIONS="-Xmx12G -Xss4m"
+
 # Run bash upon entry.
-ENTRYPOINT ["source /root/lf-verifier-benchmarks/env.bash", "/bin/bash"]
+ENTRYPOINT ["/bin/bash"]
