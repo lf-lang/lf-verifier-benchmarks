@@ -40,7 +40,7 @@ reactor Printer {
         printf("%d\n", self->result);
     =}
 }
-// @property(name="test", tactic="bmc", spec="G[0, 5 nsec](false)")
+
 @property(name="correctness", tactic="bmc", spec="G[10 nsec](Fibonacci_printer_reaction_0 ==> Fibonacci_printer_result == 89)", expect=true)
 main reactor {
     fib = new Fib()

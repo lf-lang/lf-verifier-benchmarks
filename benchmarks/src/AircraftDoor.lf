@@ -13,7 +13,6 @@ reactor Vision {
     output out:int;
     state ramp:int(0);
     
-    // Old comment: Need a way to say that a port is NOT set and a way to say that a port is set to a nondet. value.
     reaction(in) -> out {=
         if (self->ramp == 1) {
             lf_set(out, 0); // 0 = Do not open.

@@ -1,8 +1,3 @@
-/**
- * This version has the strange issue that the model
- * is blocked when CT < 20.
- */
-
 target C {
     timeout: 10 nsec
 }
@@ -40,7 +35,6 @@ reactor Printer {
     =}
 }
 
-// @property(name="test", tactic="bmc", spec="G[0, 5 nsec](false)")
 @property(name="correctness", tactic="bmc", spec="G[10 nsec](Factorial_printer_reaction_0 ==> Factorial_printer_result == 3628800)", expect=true)
 main reactor {
     factorial = new _Factorial()

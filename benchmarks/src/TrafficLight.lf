@@ -76,7 +76,6 @@ reactor Pedestrian {
     =}
 }
 
-// @property(name="test", tactic="bmc", spec="G[0, 11 sec](false)")
 @property(name="green_reachable", tactic="bmc", spec="F[0, 5 sec](TrafficLight_t__mode == 1)", expect=false)
 main reactor {
     t = new _TrafficLight()

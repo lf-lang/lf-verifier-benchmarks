@@ -1,13 +1,4 @@
 /**
- %%  Description:
- %%
- %%     This example is similar to `parikh` but requires
- %%     a more precise data abstraction to prove it safe
- %%     (i.e. Data_1 instead of Data_0, through the switch `-D 1`).
- %%
- */
-
-/**
  * (Original) Description:
  * This example illustrates the "Verify Absence-of-Errors" mode.
  * The server expects a tuple `{REQUEST,PID-OF-SENDER}`

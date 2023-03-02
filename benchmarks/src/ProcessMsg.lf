@@ -32,7 +32,6 @@ reactor Task {
     =}
 }
 
-// @property(name="test", tactic="bmc", spec="G[0, 5 nsec](false)")
 @property(name="panic_free", tactic="bmc", spec="G[5 nsec](ProcessMsg_task_panic != 1)", expect=true)
 main reactor {
     task = new Task()

@@ -177,9 +177,6 @@ reactor Simulator {
     input MotorDown:int
     input DoorCommand:int
 
-    // physical action Call1Pressed
-    // physical action Call2Pressed
-    // physical action StopPressed
     timer Call1Pressed(0, 15 sec)
     timer Call2Pressed(5 sec, 15 sec)
     timer StopPressed(10 sec, 15 sec)
@@ -237,13 +234,11 @@ reactor Simulator {
         lf_schedule(CheckDoor, 0);
     =}
 
-
     reaction(CheckDoor) -> DoorStatus {=
         lf_set(DoorStatus, self->doorStatus);
     =}
 }
 
-// @property(name="test", tactic="bmc", spec="G[0, 5 sec](false)")
 @property(name="moves_when_safe", tactic="bmc", spec="!(G[0, 15 sec]((Elevator_s_reaction_3 && (Elevator_s_direction != 0)) ==> (Elevator_s_doorStatus == 0 && Elevator_c_StopPressed == 0)))", CT=15, expect=true)
 main reactor {
     c = new Control()

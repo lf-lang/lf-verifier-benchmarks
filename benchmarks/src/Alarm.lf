@@ -8,7 +8,7 @@ reactor Controller {
 
     logical action turnOff(1 sec):int;
 
-    //@label Computation
+    @label("Computation")
     reaction(startup) -> out, out2, turnOff {=
         // ... Operation
         self->fault = 1; // Fault occurs
@@ -21,7 +21,7 @@ reactor Controller {
         }
     =}
 
-    //@label Stop
+    @label("Stop")
     reaction(turnOff) {=
         // Trigger the alarm and reset fault.
         if (turnOff->value == 1)
@@ -29,16 +29,7 @@ reactor Controller {
     =}
 }
 
-
-//// Axioms below all works.
-// @property(name="machine_stops_within_1_sec", tactic="bmc", spec="G[0, 1 sec]((Alarm_c_reaction_0) ==> F(0, 1 sec](Alarm_c_reaction_1)))")
-// @property(name="machine_stops_in_exactly_1_sec", tactic="bmc", spec="X[0]((Alarm_c_reaction_0) ==> F[1 msec](Alarm_c_reaction_1)))")
-// @property(name="fault_handled_within_1_sec", tactic="bmc", spec="X[0]((Alarm_c_reaction_0 ==> F[0, 1 sec](Alarm_c_reaction_1 && Alarm_c_fault == 0)))")
-// @property(name="fault_handled_within_1_sec", tactic="bmc", spec="X[0]((Alarm_c_reaction_0 ==> F[0, 1 sec](Alarm_c_fault == 0)))")
-// @property(name="test", tactic="bmc", spec="false")
-
-// FIXME: This is syntactically wrong, but works?? Need to look into it.
-@property(name="fault_handled_within_1_sec_v2", tactic="bmc", spec="X[0]((Alarm_c_reaction_0) ==> F[1 sec](Alarm_c_fault == 0)))", expect=false)
+@property(name="machine_stops_within_1_sec", tactic="bmc", spec="G[0, 1 sec]((Alarm_c_reaction_0) ==> F(0, 1 sec](Alarm_c_reaction_1)))", expect=true)
 main reactor {
    c =  new Controller();
 }

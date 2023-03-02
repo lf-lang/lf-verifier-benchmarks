@@ -110,7 +110,6 @@ reactor Controller {
     =}
 }
 
-// @property(name="test", tactic="bmc", spec="G[0, 2 sec](false)", CT=20)
 @property(name="TrainSafety", tactic="bmc", spec="G[0, 5 sec](!(Railroad_train_w__mode == 2 && Railroad_train_e__mode == 2))", CT=20, expect=true)
 main reactor {
     train_w = new Train()

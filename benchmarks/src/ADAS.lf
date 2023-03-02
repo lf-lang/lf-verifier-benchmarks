@@ -65,6 +65,6 @@ main reactor {
     d = new Dashboard();
     c.out -> v.in1;
     l.out -> v.in2;    
-    v.out2 -> b.in2 after 5 msec; // Changing 5 msec to 5 sec blows up the CT.
+    v.out2 -> b.in2 after 5 msec;
     v.out1 -> d.in;
 }

@@ -14,7 +14,7 @@ reactor Vehicle {
     
     state duration_of_use:time(1 sec);
     
-    reaction(startup) -> request /*, arrive*/ {=
+    reaction(startup) -> request {=
         // info_print("Vehicle %d has arrived.", self->bank_index);
         lf_set(request, 1);
     =}
@@ -84,7 +84,6 @@ reactor RSU {
     =}
 }
 
-// @property(name="test", tactic="bmc", spec="G[0, 1 nsec](false)")
 @property(name="mutual_exclusion", tactic="bmc", spec="G[0, 10 sec](!(RoadsideUnit_v1_grant == 1 && RoadsideUnit_v2_grant == 1))", expect=true)
 main reactor {
     

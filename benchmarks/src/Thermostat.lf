@@ -57,7 +57,6 @@ reactor _Thermostat {
     =}
 }
 
-// @property(name="test", tactic="bmc", spec="G[0, 40 sec](false)")
 @property(name="correctness", tactic="bmc", spec="G[0, 20 sec](((Thermostat_t_temperature <= 18) ==> F[0](Thermostat_t__mode == 1))  &&  ((Thermostat_t_temperature >= 22) ==> F[0](Thermostat_t__mode == 0)))", expect=true)
 main reactor {
     e = new Environment()

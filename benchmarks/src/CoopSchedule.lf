@@ -1,11 +1,3 @@
-/**
- * Challenge problem for verification:
- * over-approximating the system behavior
- * by marking some operation as opaque.
- *
- * The tasks should continuously run, and
- * a report is generated every 30 seconds.
- */
 target C
 
 reactor Trigger {
@@ -29,13 +21,12 @@ reactor Task {
 @property(name="upperbound", tactic="bmc", spec="G[0, 1 usec]((CoopSchedule_task1_counter + CoopSchedule_task2_counter + CoopSchedule_task3_counter + CoopSchedule_task4_counter + CoopSchedule_task5_counter) < 15)", expect=false)
 main reactor {
     trigger = new Trigger()
-    // tasks = new[5] Task();
-    task1 = new Task();
-    task2 = new Task();
-    task3 = new Task();
-    task4 = new Task();
-    task5 = new Task();
-    // (trigger.out)+ -> tasks.cnt
+    // TODO: Put these reactors in a bank.
+    task1 = new Task()
+    task2 = new Task()
+    task3 = new Task()
+    task4 = new Task()
+    task5 = new Task()
     trigger.out -> task1.cnt
     trigger.out -> task2.cnt
     trigger.out -> task3.cnt
