@@ -19,9 +19,27 @@ test_dir_array=(
     $scripts_dir/../benchmarks
 )
 
+# Large programs excluded from testing
+exclude_array=(
+    Election.lf
+    Elevator.lf
+    Factorial.lf
+    Fibonacci.lf
+    Pipe.lf
+    Railroad.lf
+    RoadsideUnit.lf
+)
+
 # Run benchmarks and collect results.
 for test_dir in "${test_dir_array[@]}"; do
     for program_file in $test_dir/src/*.lf; do
-        lfc $program_file
+        # Get the program name without the extension from the file path.
+        program=${program_file:$((${#test_dir} + 5))} # prune $test_dir/src/ from path.
+        # Execute the test if the file is not in the exclude array.
+        if [[ ! " ${exclude_array[*]} " =~ " ${program} " ]]; then
+            lfc $program_file
+        else
+            echo "Skipping $program because it is on the list of excluded programs."
+        fi
     done
 done
