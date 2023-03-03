@@ -29,6 +29,7 @@ exclude_array=(
     Railroad.lf
     RoadsideUnit.lf
     Subway.lf
+    TrafficLight.lf
 )
 
 # Run benchmarks and collect results.
