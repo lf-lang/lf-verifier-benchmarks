@@ -18,11 +18,8 @@
  * These measurements are total execution time, including startup and shutdown.
  * These are about an order of magnitude faster than anything reported in the
  * paper.
- *
- * @author Edward A. Lee
- * @author Shaokai Lin
  */
- target C {
+target C {
     fast: true
 }
 
