@@ -62,8 +62,8 @@ reactor Node2 {
     =}
 }
 
-// This property being checked does not hold. A valid property is F[0, 30 msec]((ElectionUsingAfter_i0_elected + ElectionUsingAfter_i1_elected + ElectionUsingAfter_i2_elected) == 1)
-@property(name="exactly_one_elected", tactic="bmc", spec="F[0, 20 msec]((ElectionUsingAfter_i0_elected + ElectionUsingAfter_i1_elected + ElectionUsingAfter_i2_elected) == 1)", expect=false)
+// This property being checked does not hold. A valid property is F[0, 30 msec]((Election2_i0_elected + Election2_i1_elected + Election2_i2_elected) == 1)
+@property(name="exactly_one_elected", tactic="bmc", spec="F[0, 20 msec]((Election2_i0_elected + Election2_i1_elected + Election2_i2_elected) == 1)", expect=false)
 main reactor {
     i0 = new Node0()
     i1 = new Node1()
