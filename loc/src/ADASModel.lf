@@ -1,10 +1,8 @@
 target C;
-
 preamble {=
     typedef int c_frame_t;
     typedef int l_frame_t;
 =}
-
 reactor Camera {
     output out  :{=c_frame_t=};
     state  frame:{=c_frame_t=};
@@ -15,7 +13,6 @@ reactor Camera {
         lf_set(out, self->frame);
     =}
 }
-
 reactor LiDAR {
     output out  :{=l_frame_t=};
     state  frame:{=l_frame_t=};
@@ -26,14 +23,12 @@ reactor LiDAR {
         lf_set(out, self->frame);
     =}
 }
-
 reactor Pedal {
     output out:int;
     physical action a;
     reaction(a) -> out {=
         lf_set(out, 1); =}
 }
-
 reactor Brakes {
     input inADAS:int;
     input inPedal:int;
@@ -43,7 +38,6 @@ reactor Brakes {
         self->brakesApplied = 1;
     =} deadline(10 msec) {= =}
 }
-
 reactor ADASProcessor {
     input in1:{=l_frame_t=};
     input in2:{=c_frame_t=};
@@ -62,15 +56,13 @@ reactor ADASProcessor {
             lf_set(out1, 1);
     =} deadline(20 msec) {= =}
 }
-
 reactor Dashboard {
     input in:int;
     state received:int;
     reaction(in) {=
         self->received = 1; =}
 }
-
-@property(name="responsive", tactic="bmc", spec="G[0, 10 ms]((ADASModel_l_reaction_0 && (F[0](ADASModel_p_requestStop == 1))) ==> (F[0, 55 ms]( ADASModel_b_brakesApplied == 1 )))", expect=true)
+@property(name="responsive", tactic="bmc", spec="G[0, 10 ms]((ADASModel_l_reaction_0 && (F[0](ADASModel_p_requestStop == 1))) ==> (F[0, 50 ms]( ADASModel_b_brakesApplied == 1 )))", expect=false)
 main reactor ADASModel {
     c = new Camera();
     l = new LiDAR();
