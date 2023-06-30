@@ -39,7 +39,7 @@ for test_dir in "${test_dir_array[@]}"; do
         program=${program_file:$((${#test_dir} + 5))} # prune $test_dir/src/ from path.
         # Execute the test if the file is not in the exclude array.
         if [[ ! " ${exclude_array[*]} " =~ " ${program} " ]]; then
-            lfc $program_file
+            lfc --verify $program_file
         else
             echo "Skipping $program because it is on the list of excluded programs."
         fi

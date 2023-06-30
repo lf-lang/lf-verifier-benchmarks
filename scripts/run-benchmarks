@@ -24,7 +24,7 @@ for program_file in $bmark_dir/src/*.lf; do
 
     echo "*** Time for generating the Uclid model:" >> $result_file
     # https://stackoverflow.com/questions/2408981/how-can-i-redirect-the-output-of-the-time-command
-    { time lfc --no-verify $program_file; } 2>> $result_file
+    { time lfc $program_file; } 2>> $result_file
     echo -e "\n" >> $result_file
 
     echo "*** Time for generating SMT from Uclid:" >> $result_file
