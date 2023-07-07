@@ -63,7 +63,7 @@ cd lf-verifier-benchmarks/benchmarks/src
 ```
 To verify the properties of a program, simply run `lfc`.
 ```
-lfc <file.lf>
+lfc --verify <file.lf>
 ```
 
 ### Checking a set of programs
