@@ -51,7 +51,7 @@ reactor ADASProcessor {
     output out2:int;
     logical action a(50 msec);
     state requestStop:int;
-    reaction(in2, in1) -> a {=
+    reaction(in1,in2) -> a {=
         // ... Detect danger
 		// and request stop.
         lf_schedule(a, 0);
