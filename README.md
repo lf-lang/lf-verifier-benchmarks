@@ -7,49 +7,61 @@ process `@property` annotations.
 ### Manuel Setup
 One can manually install the prerequisites by following these steps.
 
-1. Install [Lingua Franca](https://www.lf-lang.org) with verifier;
+1. Install [Lingua Franca](https://www.lf-lang.org);
 ```
 git clone https://github.com/lf-lang/lingua-franca.git
-git checkout verifier
-./bin/build-lf-cli
+cd lingua-franca
+./gradlew assemble
 ```
 
 2. Install [Z3](https://github.com/Z3Prover/z3) and
    [Uclid5](https://github.com/uclid-org/uclid);
 
-2a. Clone the Uclid5 repo:
+   a. Clone the Uclid5 repo:
 
-```
-git clone https://github.com/uclid-org/uclid.git
-cd uclid
-git checkout 4fd5e566c5f87b052f92e9b23723a85e1c4d8c1c
-```
+   ```
+   git clone https://github.com/uclid-org/uclid.git
+   cd uclid
+   git checkout 4fd5e566c5f87b052f92e9b23723a85e1c4d8c1c
+   ```
 
-2b. Install Z3 using a utility script in the Uclid5 repo.
+   b. Make sure prerequisites are met.
+   Please find the instructions for Linux [here](https://github.com/uclid-org/uclid#installation-of-prerequisites-on-linux), and the instructions for macOS [here](https://github.com/uclid-org/uclid#installation-of-prerequisites-on-mac).
 
-```
-./get-z3-linux.sh
-```
+   c. Install Z3 using a utility script in the Uclid5 repo.
 
-2c. Update the environment variables `PATH` and `LD_LIBRARY_PATH`. See
-[here](https://github.com/uclid-org/uclid#installation-of-prerequisites-on-linux)
-for more details.
+   ```
+   ./get-z3-linux.sh
+   ```
 
-```
-export PATH="${PATH}:<path-to-uclid>/z3/bin"
-export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:<path-to-uclid>/z3/bin"
-```
+   There is a corresponding utility script for macOS.
 
-2d. Build Uclid5.
+   ```
+   ./get-z3-macos.sh
+   ```
 
-```
-sbt update clean compile
-sbt universal:packageBin
-cd target/universal/
-unzip uclid-0.9.5.zip
-```
+   d. Run the setup scripts.
 
-2e. Then add `<path-to-uclid>/target/universal/uclid-0.9.5/bin/` to PATH.
+   ```
+   ./setup-z3-linux.sh
+   ```
+
+   There is a corresponding version for macOS.
+
+   ```
+   ./setup-z3-macos.sh
+   ```
+
+   e. Build Uclid5.
+
+   ```
+   sbt update clean compile
+   sbt universal:packageBin
+   cd target/universal/
+   unzip uclid-0.9.5.zip
+   ```
+
+   f. Then add `<path-to-uclid>/target/universal/uclid-0.9.5/bin/` to PATH.
 
 ### Docker (experimental)
 To quickly set up a working environment, we recommend building a docker image
@@ -58,7 +70,6 @@ using the Dockerfile provided.
 docker build -t <tag> -f docker/Dockerfile .
 docker run -it <tag>
 ```
-(FIXME: Need to allocate more memory to the docker container.)
 
 ## Getting Started
 
