@@ -4,6 +4,14 @@ process `@property` annotations.
 
 ## Prerequisites
 
+### Docker (experimental)
+To quickly set up a working environment, we recommend building a docker image
+using the Dockerfile provided.
+```
+docker build -t <tag> -f docker/Dockerfile .
+docker run -it <tag>
+```
+
 ### Manuel Setup
 One can manually install the prerequisites by following these steps.
 
@@ -62,14 +70,6 @@ cd lingua-franca
    ```
 
    f. Then add `<path-to-uclid>/target/universal/uclid-0.9.5/bin/` to PATH.
-
-### Docker (experimental)
-To quickly set up a working environment, we recommend building a docker image
-using the Dockerfile provided.
-```
-docker build -t <tag> -f docker/Dockerfile .
-docker run -it <tag>
-```
 
 ## Getting Started
 

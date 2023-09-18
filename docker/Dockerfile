@@ -26,10 +26,9 @@ RUN apt-get update \
 # Install Lingua Franca.
 RUN git clone --recursive https://github.com/lf-lang/lingua-franca.git && \
     cd lingua-franca && \
-    git checkout verifier && \
-    ./bin/build-lf-cli
+    ./gradlew assemble
 ENV PATH="${PATH}:/root/lingua-franca/bin"
-RUN lfc --version
+RUN lfc-dev --version
 
 # Install Z3 and Uclid5.
 RUN git clone https://github.com/uclid-org/uclid.git && \
