@@ -2,6 +2,8 @@
 This repository contains benchmarks for Lingua Franca (LF) verifiers that can
 process `@property` annotations.
 
+The implementation of the LF Verifier is in the [`lingua-franca` repo](https://github.com/lf-lang/lingua-franca/tree/d4c3ae4e2ecad9c5a30d7bba519259c8fc5667d2/core/src/main/java/org/lflang/analyses).
+
 ## Prerequisites
 
 ### Docker (experimental)
