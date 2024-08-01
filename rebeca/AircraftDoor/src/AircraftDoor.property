@@ -1,0 +1,5 @@
+property {
+	Assertion {
+		VisionWorks: !(door.doorOpen == 1) || (vision.ramp == 0); // (vision.ramp == 0) ==> (door.doorOpen == 1)
+	}
+}

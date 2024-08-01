@@ -1,0 +1,33 @@
+/**
+ * - Actions can be modeled using reaction parameters.
+ * - How to specify properties related to the timing of reaction invocations?
+ */
+reactiveclass Controller(10) {
+	statevars {
+		int fault;
+		// Dangling output ports can be modeled as state variables.
+		int out_value;
+		int out2_value;
+	}
+	Controller() {
+		self.reaction_1();
+	}
+	msgsrv reaction_1() {
+		// ... Operation
+		fault = 1; // Fault occurs
+		
+		// Fault handling
+		if (fault == 1) {
+			self.reaction_2(0) after(1); // turnOff_value == 0
+			out_value = 5;
+			out2_value = 10;
+		}
+	}
+	msgsrv reaction_2(int turnOff_value) {
+		if (turnOff_value == 1)
+			fault = 0;
+	}
+}
+main {
+	@priority(1) Controller c():();
+}

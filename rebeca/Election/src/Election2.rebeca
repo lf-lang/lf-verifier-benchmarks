@@ -1,0 +1,38 @@
+reactiveclass Node(5) {
+    knownrebecs{
+    	// Roughly translates to output ports.
+    	Node right;
+    }
+    statevars {
+		int id;
+		boolean elected;
+    }
+    Node(int _id) {
+    	// Saving reactor parameters 
+    	// and initialize state variables.
+       	id = _id;
+       	self.reaction_1();
+    }
+    // Reaction 1 triggered by startup
+    msgsrv reaction_1() {
+    	right.reaction_2(id) after(10);
+    }
+  	// Reaction 2
+    msgsrv reaction_2(int in) {
+    	if (in > id) {
+	        right.reaction_2(in) after(10);
+	    } else if (in == id) {
+	        elected = true;
+	        self.elected();
+	    }
+    }
+    msgsrv elected() {
+    	self.elected();	
+    }
+}
+main {
+	// First () is for all the known rebecs.
+     @priority(1) Node node0(node1):(0);
+     @priority(1) Node node1(node2):(1);
+     @priority(1) Node node2(node0):(2); 
+}

@@ -1,0 +1,202 @@
+/**
+ * - Schedule timer firings with offsets.
+ * - Demonstrates a proper encoding for input ports and actions.
+ */ 
+reactiveclass Train(10) {
+	// Put downstream reactors here.
+	knownrebecs {
+		Controller controller;
+	}
+	statevars {
+		// State variables
+		int _out;
+		int _mode;
+		// Outputs (only _value field needed)
+		int out_value;
+		// Inputs (both _value and _is_present fields needed)
+		int signal_value;
+		boolean signal_is_present;
+		// Actions
+		boolean outUpdated_is_present;
+		boolean toModeAway_is_present;
+		boolean toModeWait_is_present;
+		boolean toModeBridge_is_present;
+	}
+	Train() {
+		_out = 0;
+		_mode = 0;
+		self.reaction_1(); // Schedule the startup reaction.
+		self.reaction_2() after(1); // Schedule the first timer with an offset.
+	}
+	msgsrv reaction_1() {
+		_mode = 0;
+	}
+	msgsrv reaction_2() {
+		if (_mode == 0) {					// if (self->_mode == 0) {
+            out_value = 0;           		// lf_set(out, 0);
+            controller.reaction_2(); 		//
+            _out = 0;						// self->_out = 0;
+           	self.lf_schedule_outUpdated(0);	// lf_schedule(outUpdated, 0);
+        }
+        else if (_mode == 2) {				// else if (self->_mode == 2) {
+            out_value = 1;					// lf_set(out, 1);
+            controller.reaction_2(); 		//
+            _out = 1;						// self->_out = 1;
+            self.lf_schedule_outUpdated(0);	// lf_schedule(outUpdated, 0);
+        }
+        // Postamble: schedule the next timer-driven invocation.
+        self.reaction_2() after(1000000000);
+	}
+	msgsrv reaction_3() {
+		if (_mode == 0) { // if (self->_mode == 0) {
+            if (outUpdated_is_present && _out == 0) { // if (outUpdated->is_present && self->_out == 0) {
+                self.lf_schedule_toModeWait(0);
+            }
+        }
+        else if (_mode == 1) {
+            if (signal_is_present
+                && signal_value == 0) {
+                self.lf_schedule_toModeBridge(0);
+            }
+        }
+        else {
+            if (outUpdated_is_present
+                && _out == 1) {
+                self.lf_schedule_toModeAway(0);
+            }
+        }
+     	// Postamble (clearing inputs and actions)
+     	signal_is_present = false;
+     	outUpdated_is_present = false;
+	}
+	// reaction(toModeAway)
+	msgsrv reaction_4() {
+		_mode = 0;
+	}
+	// reaction(toModeWait)
+	msgsrv reaction_5() {
+		_mode = 1;
+	}
+	// reaction(toModeBridge)
+	msgsrv reaction_6() {
+		_mode = 2;
+	}
+	//// Auxiliary message handlers ////
+	// lf_schedule
+	msgsrv lf_schedule_outUpdated(int additional_delay) {
+		outUpdated_is_present = true;
+		self.reaction_3() after(0 + additional_delay);
+	}
+	msgsrv lf_schedule_toModeAway(int additional_delay) {
+		toModeAway_is_present = true;
+		self.reaction_4() after(0 + additional_delay);
+	}
+	msgsrv lf_schedule_toModeWait(int additional_delay) {
+		toModeWait_is_present = true;
+		self.reaction_5() after(0 + additional_delay);
+	}
+	msgsrv lf_schedule_toModeBridge(int additional_delay) {
+		toModeBridge_is_present = true;
+		self.reaction_6() after(0 + additional_delay);
+	}
+	// Input port handling
+	msgsrv input_signal_reads(int _signal_value) {
+		signal_value = _signal_value;
+		signal_is_present = true;
+		self.reaction_3(); // Schedule the reaction triggered by this port.
+	}
+}
+reactiveclass Controller(10) {
+	knownrebecs {
+		Train train_w, train_e;
+	}
+	statevars {
+		// Inputs
+		int out_w_value;
+		boolean out_w_is_present;
+		int out_e_value;
+		boolean out_e_is_present;
+		// Outputs
+		int signal_w_value;
+		int signal_e_value;
+		// State variables
+		int west; // 0 = GREEN, 1 = RED
+		int east; // 0 = GREEN, 1 = RED
+		int near_w;
+		int near_e;
+		// Actions
+		boolean westUpdated_is_present;
+		boolean eastUpdated_is_present;
+	}
+	Controller() {
+		self.reaction_1(); // Schedule the first reaction triggered by startup.
+	}
+	msgsrv reaction_1() {
+		west = 1;
+      	east = 1;
+        near_w = 0;
+        near_e = 0;
+	}
+	msgsrv reaction_2() {
+		if (out_e_is_present && out_e_value == 0) {
+            near_e = 1;
+        }
+        if (out_e_is_present && out_e_value == 1) {
+            near_e = 0;
+        }
+        if (out_w_is_present && out_w_value == 0) {
+            near_w = 1;
+        }
+        if (out_w_is_present && out_w_value == 1) {
+            near_w = 0;
+        }
+        if (near_e != 1) {
+            east = 1;
+        } else if (west == 1) {
+            east = 0;
+        }
+        if (near_w != 1) {
+            west = 1;
+        } else if (east == 1) {
+            west = 0;
+        }
+        // Postamble (clearing inputs and actions)
+        out_e_is_present = false;
+        out_w_is_present = false;
+	}
+	msgsrv reaction_3() {
+		// lf_set(signal_w, self->west);
+		signal_w_value = west;
+		train_w.input_signal_reads(signal_w_value);
+	}
+	msgsrv reaction_4() {
+		// lf_set(signal_e, self->east);
+		signal_e_value = east;
+		train_e.input_signal_reads(signal_e_value);
+	}
+	// Input port handling
+	msgsrv input_out_w_reads(int _out_w) {
+		out_w_value = _out_w;
+		out_w_is_present = true;
+		self.reaction_2();
+	}
+	msgsrv input_out_e_reads(int _out_e) {
+		out_e_value = _out_e;
+		out_e_is_present = true;
+		self.reaction_2();
+	}
+	// Action scheduling
+	msgsrv lf_schedule_westUpdated(int additional_delay) {
+		westUpdated_is_present = true;
+		self.reaction_3() after(0 + additional_delay);
+	}
+	msgsrv lf_schedule_eastUpdated(int additional_delay) {
+		eastUpdated_is_present = true;
+		self.reaction_4() after(0 + additional_delay);
+	}
+}
+main {
+	@priority(1) Train train_w(controller):();
+	@priority(1) Train train_e(controller):();
+	@priority(1) Controller controller(train_w, train_e):();
+}

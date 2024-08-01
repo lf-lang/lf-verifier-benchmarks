@@ -1,0 +1,51 @@
+/**
+ * - A principled way to encode connections.
+ * - Does not terminate.
+ * - How to encode temporal properties within a bounded time?
+ */
+reactiveclass Trigger(10) {
+	knownrebecs {
+		Task t1, t2, t3, t4, t5;
+	}
+	statevars {
+		// A more proper way to encode connections?
+		// Record output port values in statevars.
+		// When lf_set() is used, set the state variable.
+		// And then generate function calls.
+		int out_value;
+	}
+	Trigger() {
+		self.reaction_1(); // Schedule the first timer firing.
+	}
+	msgsrv reaction_1() {
+		// lf_set(out, 1);
+		out_value = 1;
+		// Encoding broadcast.
+		t1.reaction_1(out_value);
+		t2.reaction_1(out_value);
+		t3.reaction_1(out_value);
+		t4.reaction_1(out_value);
+		t5.reaction_1(out_value);
+		// Schedule the subsequent timer firing.
+		self.reaction_1();
+	}
+}
+reactiveclass Task(10) {
+	statevars {
+		int counter;
+	}
+	Task() {
+		counter = 0;
+	}
+	msgsrv reaction_1(int in_value) {
+		counter += 2;
+	}
+}
+main {
+	@priority(1) Trigger trigger(t1, t2, t3, t4, t5):();
+	@priority(1) Task t1():();
+	@priority(1) Task t2():();
+	@priority(1) Task t3():();
+	@priority(1) Task t4():();
+	@priority(1) Task t5():();
+}

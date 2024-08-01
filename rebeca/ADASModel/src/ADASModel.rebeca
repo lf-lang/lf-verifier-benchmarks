@@ -1,0 +1,104 @@
+/**
+ * - (Solved) How to model simultaneous inputs?
+ * - Is there a need to support deadlines in Rebeca?
+ */
+reactiveclass Camera(10) {
+	knownrebecs {
+		ADASProcessor p;
+	}
+	statevars {
+		int frame; // c_frame_t
+	}
+	Camera() {
+		self.reaction_1(); // Kick off the first invocation of the timer.
+	}
+	msgsrv reaction_1() {
+		frame = 1;
+		p.reaction_1_read_from_in2(frame); // Can both in1, in2 receive frame?
+		self.reaction_1() after(17); // Schedule the next timer firing.
+	}
+}
+reactiveclass LiDAR(10) {
+	knownrebecs {
+		ADASProcessor p;
+	}
+	statevars {
+		int frame; // l_frame_t
+	}
+	LiDAR() {
+		self.reaction_1(); // Kick off the first invocation of the timer.
+	}
+	msgsrv reaction_1() {
+		frame = 1;
+		p.reaction_1_read_from_in1(frame); // Can both in1, in2 receive frame?
+		self.reaction_1() after(34); // Schedule the next timer firing.
+	}
+}
+reactiveclass Brakes(10) {
+	statevars {
+		int brakesApplied;
+	}
+	Brakes() {
+		brakesApplied = 0;
+	}
+	msgsrv reaction_1() {
+		// Actuate brakes.
+        brakesApplied = 1;
+	}
+}
+reactiveclass ADASProcessor(10) {
+	knownrebecs {
+		Dashboard d;
+		Brakes b;
+	}
+	statevars {
+		int requestStop;
+		int in1_value_stored;
+		boolean in1_value_presence;
+		int in2_value_stored;
+		boolean in2_value_presence;
+	}
+	ADASProcessor(){}
+	// msgsrv reaction_1(int in1_value, int in2_value) {
+	// 	self.reaction_2() after(50); // lf_schedule(a, 0); with 50 msec min delay
+	// 	requestStop = 1;
+	// }
+	//// An Encoding/Mapping/Transformation for handling simultaneous LF inputs.
+	msgsrv reaction_1_read_from_in1(int in1_value) {
+		in1_value_stored = in1_value;
+		in1_value_presence = true;
+		self.reaction_1();
+	}
+	msgsrv reaction_1_read_from_in2(int in2_value) {
+		in2_value_stored = in2_value;
+		in2_value_presence = true;
+		self.reaction_1();
+	}
+	msgsrv reaction_1() {
+		self.reaction_2() after(50); // lf_schedule(a, 0); with 50 msec min delay
+		requestStop = 1;
+		// Reset in1_value_stored and in2_value_stored to absent.
+		in1_value_presence = false;
+		in2_value_presence = false;
+	}
+	msgsrv reaction_2() {
+		if (requestStop == 1)
+			b.reaction_1() after(5);
+	}
+}
+reactiveclass Dashboard(10) {
+	statevars {
+		int received;
+	}
+	msgsrv reaction_1() {
+		received = 1;
+	}
+}
+main {
+	@priority(1) Camera c(p):();
+	@priority(1) LiDAR l(p):();
+	@priority(1) ADASProcessor p(d, b):();
+	@priority(1) Brakes b():();
+	@priority(1) Dashboard d():();
+}
+

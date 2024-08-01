@@ -1,0 +1,6 @@
+property { 
+
+	Assertion {
+		NotBothOnBridge: !(train_w._mode == 2 && train_e._mode == 2);
+	}
+}

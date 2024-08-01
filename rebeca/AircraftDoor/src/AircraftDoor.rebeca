@@ -1,0 +1,54 @@
+/**
+ * - Deadlock should not be a problem in this case?
+ * - Not sure how to determine the buffer size.
+ * - Is there a way to natively encode implication?
+ */
+reactiveclass Controller(10) {
+	knownrebecs {
+		Vision vision;
+	}
+	Controller() {
+		self.reaction_1(); // Only do this if the reaction is triggered by startup.
+	}
+	// Reaction 1 triggered by startup
+    msgsrv reaction_1() {
+    	vision.reaction_1(1);
+    }
+}
+reactiveclass Vision(10) {
+	knownrebecs {
+		Door door;
+	}
+	statevars {
+		int ramp;
+    }
+	Vision() {
+		ramp = 0; // Supposed to be set by the environment.
+	}
+	msgsrv reaction_1(int in_value) { // Input port name as the parameter
+		if (ramp == 0) {
+			door.reaction_1(0); // 0 = Do not open.
+		} else {
+			door.reaction_1(1); // 1 = Open.
+		}
+    }
+}
+reactiveclass Door(10) {
+	statevars {
+		int doorOpen;
+	}
+	Door(){}
+	msgsrv reaction_1(int in_value) {
+		if (in_value == 1)
+            doorOpen = 1; // Open
+        else if (in_value == 0)
+            doorOpen = 0; // Closed
+	}
+}
+main {
+	// First () is for knownrebecs.
+     @priority(1) Controller controller(vision):();
+     @priority(1) Vision vision(door):();
+     @priority(1) Door door():(); 
+}
+

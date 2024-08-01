@@ -1,0 +1,19 @@
+property { 
+	define {
+		electedZero = node0.elected == true; 
+		electedOne = node1.elected == true; 
+		electedTwo = node2.elected == true;
+	}
+	
+	Assertion
+	{
+		EventuallyOnlyOneElected: 
+		(
+			(electedZero && !electedOne && !electedTwo) 
+			|| (!electedZero && electedOne && !electedTwo) 
+			|| (!electedZero && !electedOne && electedTwo)
+		) 
+		|| 
+		(!electedZero && !electedOne && !electedTwo);
+	}
+}
