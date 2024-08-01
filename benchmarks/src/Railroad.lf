@@ -93,13 +93,17 @@ reactor Controller {
         }
         if (self->near_e != 1) {
             self->east = 1;
+            lf_schedule(eastUpdated, 0);
         } else if (self->west == 1) {
             self->east = 0;
+            lf_schedule(eastUpdated, 0);
         }
         if (self->near_w != 1) {
             self->west = 1;
+            lf_schedule(westUpdated, 0);
         } else if (self->east == 1) {
             self->west = 0;
+            lf_schedule(westUpdated, 0);
         }
     =}
     reaction(westUpdated) -> signal_w {=
