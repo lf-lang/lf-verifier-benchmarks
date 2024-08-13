@@ -1,6 +1,7 @@
 /**
  * - Actions can be modeled using reaction parameters.
- * - How to specify properties related to the timing of reaction invocations?
+ * - How to specify properties related to the timing of reaction invocations? 
+ *   (E.g., reaction_1 and reaction_2 are invoked back-to-back within a 1 second interval.)
  */
 reactiveclass Controller(10) {
 	statevars {
