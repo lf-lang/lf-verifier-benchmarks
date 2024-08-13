@@ -22,9 +22,9 @@ For example, the `Train` reactor connects to `Controller`. Thus in `Train`'s
 `reactiveclass` we have
 ```
     // Put downstream reactors here.
-	knownrebecs {
-		Controller controller;
-	}
+    knownrebecs {
+        Controller controller;
+    }
 ```
 
 ### Step 3: Encode LF's state variables, ports, and actions in Rebeca's `statevars` block.
@@ -36,20 +36,20 @@ type (assuming Rebeca has it). For each input port, create a `_value` and a
 untyped), only the `_is_present` field is needed.
 ```
     statevars {
-		// State variables
-		int _out;
-		int _mode;
-		// Outputs (only _value field needed)
-		int out_value;
-		// Inputs (both _value and _is_present fields needed)
-		int signal_value;
-		boolean signal_is_present;
-		// Actions
-		boolean outUpdated_is_present;
-		boolean toModeAway_is_present;
-		boolean toModeWait_is_present;
-		boolean toModeBridge_is_present;
-	}
+        // State variables
+        int _out;
+        int _mode;
+        // Outputs (only _value field needed)
+        int out_value;
+        // Inputs (both _value and _is_present fields needed)
+        int signal_value;
+        boolean signal_is_present;
+        // Actions
+        boolean outUpdated_is_present;
+        boolean toModeAway_is_present;
+        boolean toModeWait_is_present;
+        boolean toModeBridge_is_present;
+    }
 ```
 
 ### Step 4: In the constructor, initialize the state variables (if specified in the LF program) and schedule reactions triggered by `startup` and timers.
@@ -61,21 +61,21 @@ In the LF program, state variables are given initial values.
 ```
 Thus in Rebeca's `Train` constructor, we  need to initialize them.
 ```
-	Train() {
-		_out = 0;
-		_mode = 0;
-	}
+    Train() {
+        _out = 0;
+        _mode = 0;
+    }
 ```
 Since `Train`'s reaction 1 is triggered by `startup` and reaction 2 is triggered
 by a timer with an offset of `1 nsec` and a period of `1 sec`, we need to
 schedule these reactions' first invocations.
 ```
-	Train() {
-		_out = 0;
-		_mode = 0;
-		self.reaction_1(); // Schedule the startup reaction.
-		self.reaction_2() after(1); // Schedule the first timer with an offset of 1 nsec.
-	}
+    Train() {
+        _out = 0;
+        _mode = 0;
+        self.reaction_1(); // Schedule the startup reaction.
+        self.reaction_2() after(1); // Schedule the first timer with an offset of 1 nsec.
+    }
 ```
 
 ### Step 5: Encode reactions.
@@ -83,8 +83,8 @@ schedule these reactions' first invocations.
 For each reaction, create a `msgsrv`.
 ```
     msgsrv <reaction_name>() {
-		...
-	}
+        ...
+    }
 ```
 
 For each statement and expression in C, use the following table for conversion.
@@ -124,11 +124,11 @@ As an end-to-end example, here is reaction 2 in `Railroad.lf`:
 In Rebeca, this becomes:
 ```C
     msgsrv reaction_2() {
-		if (_mode == 0) {
+        if (_mode == 0) {
             out_value = 0;
             controller.input_out_w_reads(out_value);
             _out = 0;
-           	self.lf_schedule_outUpdated() after(0+0);
+               self.lf_schedule_outUpdated() after(0+0);
         }
         else if (_mode == 2) {
             out_value = 1;
@@ -138,7 +138,7 @@ In Rebeca, this becomes:
         }
         // Postamble: schedule the next timer-driven invocation.
         self.reaction_2() after(1000000000);
-	}
+    }
 ```
 
 ### Step 6: Create auxiliary message servers for action scheduling and input port reading.
@@ -151,9 +151,9 @@ For example, the `outUpdated` action in the `Train` reactor produces the
 following code:
 ```
     msgsrv lf_schedule_outUpdated() {
-		outUpdated_is_present = true;
-		self.reaction_3();
-	}
+        outUpdated_is_present = true;
+        self.reaction_3();
+    }
 ```
 
 Then for each input port the reactor has, create a `msgsrv` named
@@ -165,10 +165,10 @@ For example, the `signal` input port in the `Train` reactor produces the
 following code:
 ```C
     msgsrv input_signal_reads(int _signal_value) {
-		signal_value = _signal_value;
-		signal_is_present = true;
-		self.reaction_3(); // Invoke the reaction triggered by this port.
-	}
+        signal_value = _signal_value;
+        signal_is_present = true;
+        self.reaction_3(); // Invoke the reaction triggered by this port.
+    }
 ```
 
 ### Step 7: In the `main` block, instantiate each `reactiveclass` based on the main reactor.
@@ -192,8 +192,8 @@ main reactor {
 Here is the Rebeca version:
 ```
 main {
-	@priority(1) Train train_w(controller):();
-	@priority(1) Train train_e(controller):();
-	@priority(1) Controller controller(train_w, train_e):();
+    @priority(1) Train train_w(controller):();
+    @priority(1) Train train_e(controller):();
+    @priority(1) Controller controller(train_w, train_e):();
 }
 ```
