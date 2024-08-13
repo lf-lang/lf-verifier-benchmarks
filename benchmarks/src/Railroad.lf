@@ -3,8 +3,8 @@ target C
 reactor Train {
     input signal:int // 0 = GREEN, 1 = RED
     output out:int   // 0 = ARRIVE, 1 = LEAVE
-    state _out:int(0)
-    state _mode:int(0)  // 0 = AWAY, 1 = WAIT, 2 = BRIDGE
+    state _out:int = 0
+    state _mode:int = 0  // 0 = AWAY, 1 = WAIT, 2 = BRIDGE
     
     // It would be better to use a physical action
     // to model sporadic events.

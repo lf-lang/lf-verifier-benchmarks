@@ -31,7 +31,7 @@ reactiveclass Train(10) {
 		_out = 0;
 		_mode = 0;
 		self.reaction_1(); // Schedule the startup reaction.
-		self.reaction_2() after(1); // Schedule the first timer with an offset.
+		self.reaction_2() after(1); // Schedule the first timer with an offset of 1 nsec.
 	}
 	msgsrv reaction_1() {
 		_mode = 0;
@@ -108,7 +108,7 @@ reactiveclass Train(10) {
 	msgsrv input_signal_reads(int _signal_value) {
 		signal_value = _signal_value;
 		signal_is_present = true;
-		self.reaction_3(); // Schedule the reaction triggered by this port.
+		self.reaction_3(); // Invoke the reaction triggered by this port.
 	}
 }
 reactiveclass Controller(10) {
