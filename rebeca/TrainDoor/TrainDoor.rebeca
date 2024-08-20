@@ -1,0 +1,76 @@
+/**
+ * A simple test case that contains both cascade and parallel compositions. We
+ * use this program to figure out how to add @GlobalPriority to message servers.
+ */
+reactiveclass Controller(10) {
+    knownrebecs {
+        Train t;
+        Door d;
+    }
+    statevars {
+        // Outputs
+        int out1_value;
+        int out2_value;
+    }
+    Controller() {
+        self.reaction_1();
+    }
+    @GlobalPriority(1)
+    msgsrv reaction_1() {
+        out1_value = 1;
+        t.read_port_in(out1_value) after (1000000000);
+        d.read_port_in(out1_value) after (1000000000);
+    }
+}
+
+reactiveclass Train(10) {
+    knownrebecs {
+        // No downstream reactors.
+    }
+    statevars {
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        // State variables
+        int received;
+    }
+    @GlobalPriority(3)
+    msgsrv reaction_1() {
+        received = in_value;
+    }
+    @GlobalPriority(2)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_1();
+    }
+}
+
+reactiveclass Door(10) {
+    knownrebecs {
+        // No downstream reactors.
+    }
+    statevars {
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        // State variables
+        int received;
+    }
+    @GlobalPriority(3)
+    msgsrv reaction_1() {
+        received = in_value;
+    }
+    @GlobalPriority(2)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_1();
+    }
+}
+
+main {
+    Controller c(t, d):();
+    Train t():();
+    Door d():();
+}
