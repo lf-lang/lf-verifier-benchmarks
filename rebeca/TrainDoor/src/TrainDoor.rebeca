@@ -1,6 +1,10 @@
 /**
  * A simple test case that contains both cascade and parallel compositions. We
  * use this program to figure out how to add @GlobalPriority to message servers.
+ *
+ * There are in general two constraints:
+ * 1. Reactions must be invoked in the order of their levels, which is a partial order (reactions can have the same level).
+ * 2. If a reaction depends on some inputs, the inputs' "read" handlers must fire _before_ the reaction does.
  */
 reactiveclass Controller(10) {
     knownrebecs {
@@ -15,7 +19,9 @@ reactiveclass Controller(10) {
     Controller() {
         self.reaction_1();
     }
+    // Level: 1
     @GlobalPriority(1)
+    // @GlobalPriority(1)
     msgsrv reaction_1() {
         out1_value = 1;
         t.read_port_in(out1_value) after (1000000000);
@@ -34,11 +40,24 @@ reactiveclass Train(10) {
         // State variables
         int received;
     }
+    // Level: 2
     @GlobalPriority(3)
+    // @GlobalPriority(2)
     msgsrv reaction_1() {
         received = in_value;
     }
     @GlobalPriority(2)
+    // @GlobalPriority(0) 	// Alternatively, given the after delay, 
+    						// when we start a tag, we could execute 
+    						// the input handlers first by giving them 
+    						// priority 0. This does not work when 
+    						// the after delay is removed because, 
+    						// in that case, the input handler must 
+    						// happen _after_ Controller's reaction. 
+    						// The benefit of this alternative approach 
+    						// is that reactions can keep their levels 
+    						// as priorities if after delays are solely 
+    						// used in the program. 
     msgsrv read_port_in(int _in_value) {
         in_value = _in_value;
         in_is_present = true;
@@ -57,11 +76,14 @@ reactiveclass Door(10) {
         // State variables
         int received;
     }
+    // Level: 2
     @GlobalPriority(3)
+    // @GlobalPriority(2)
     msgsrv reaction_1() {
         received = in_value;
     }
     @GlobalPriority(2)
+    // @GlobalPriority(0)
     msgsrv read_port_in(int _in_value) {
         in_value = _in_value;
         in_is_present = true;

@@ -1,0 +1,99 @@
+/**
+ * The reactions maintian their levels while aux msgsrv use 0.
+ * This does not work in hindsight because input ports are not set at priority 0.
+ *
+ * There are in general two constraints:
+ * 1. Reactions must be invoked in the order of their levels, which is a partial order (reactions can have the same level).
+ * 2. If a reaction depends on some inputs, the inputs' "read" handlers must fire _before_ the reaction does.
+ *
+ * Question: Does msgsrv with @GlobalPriority(0) get scheduled if it is scheduled by a msgsrv with @GlobalPriority(1)? 
+ * My guess: No?
+ */
+reactiveclass Ping(10) {
+    knownrebecs {
+    	Pong pong;
+    }
+    statevars {
+    	// Inputs
+    	int receive_value;
+    	boolean receive_is_present;
+    	// Outputs
+    	int send_value;
+    	// State variables
+    	int pingsLeft;
+    	// Actions
+    	boolean serve_is_present;
+    }
+    Ping() {
+    	pingsLeft = 10;
+    	self.reaction_1();
+    }
+    // Level: 1
+    @GlobalPriority(1)
+    msgsrv reaction_1() {
+    	self.lf_schedule_serve() after(1);
+    }
+    // Level: 2
+    @GlobalPriority(3)
+    msgsrv reaction_2() {
+    	send_value = pingsLeft;
+    	pong.read_port_receive(send_value) after(0);
+    	pingsLeft -= 1;
+    }
+    // Level: 4
+    @GlobalPriority(7)
+    msgsrv reaction_3() {
+    	if (pingsLeft > 0) {
+            self.lf_schedule_serve() after(1);
+        }
+    }
+    @GlobalPriority(2)
+    msgsrv lf_schedule_serve() {
+    	serve_is_present = true;
+    	self.reaction_2();
+    }
+    @GlobalPriority(6)
+    msgsrv read_port_receive(int _receive_value) {
+    	receive_value = _receive_value;
+    	receive_is_present = true;
+    	self.reaction_3();
+    }
+}
+
+reactiveclass Pong(10) {
+	knownrebecs {
+		Ping ping;
+	}
+	statevars {
+		// Inputs
+		int receive_value;
+		boolean receive_is_present;
+		// Outputs
+		int send_value;
+		// State vars
+		int count;
+		int expected;
+	}
+	Pong() {
+		count = 0;
+		expected = 10;
+	}
+	// Level: 3
+	@GlobalPriority(5)
+	msgsrv reaction_1() {
+		count += 1;
+		send_value = 1;
+		ping.read_port_receive(send_value);
+	}
+	@GlobalPriority(4)
+	msgsrv read_port_receive(int _receive_value) {
+    	receive_value = _receive_value;
+    	receive_is_present = true;
+    	self.reaction_1();
+    }
+}
+
+main {
+	Ping ping(pong):();
+	Pong pong(ping):();
+}
