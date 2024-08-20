@@ -30,9 +30,15 @@ For example, the `Train` reactor connects to `Controller`. Thus in `Train`'s
 ### Step 3: Encode LF's state variables, ports, and actions in Rebeca's `statevars` block.
 
 For example, the `Train` reactor has two state variables. Reproduce them
-verbatim here. For each output port, create a `_value` field with the same data
-type (assuming Rebeca has it). For each input port, create a `_value` and a
-`_is_present` field. For an action, do the same. If the action is pure (i.e.,
+verbatim here. 
+
+For each output port, create a `_value` field with the same data
+type (assuming Rebeca has it). 
+
+For each input port, create a `_value` and a
+`_is_present` field. 
+
+For an action, do the same. If the action is pure (i.e.,
 untyped), only the `_is_present` field is needed.
 ```
     statevars {
@@ -95,7 +101,7 @@ For each statement and expression in C, use the following table for conversion.
 | Arithmetic comparison | `> \| < \| >= \| <= \| == \| !=` | Same as C
 | Assignment | `<var1> = <var2>` | Same as C |
 | LF state variables | `self.<var>` | `<var>` |
-| Setting a port | `lf_set(<upstream_output_port>, <value>);` | `<upstream_output_port>_value = <value>; <downstream_reactor_instance_name>.input_<downstream_input_port>_reads(<upstream_output_port>_value);` |
+| Setting a port | `lf_set(<upstream_output_port>, <value>);` | `<upstream_output_port>_value = <value>;` Then for each downstream reaction triggered, insert `<downstream_reactor_instance_name>.read_port_<downstream_input_port>(<upstream_output_port>_value) after (after_delay_along_connection);` |
 | Scheduling an action | `lf_schedule(<action>, <additional_delay>);` | `self.lf_schedule_<action>() after(<min_delay> + <additional_delay>);` |
 
 At the end of each reaction `msgsrv`, a postamble is needed based on the
@@ -105,6 +111,10 @@ following conditions.
 | :---------------- | :------ | :------ |
 | The reaction is timer-driven. | Schedule the next timer-driven invocation. | `self.<reaction_name>() after(<timer_period>);` |
 | The reaction is triggered by inputs or actions. | Clear the `_is_present` field for each input or action. | `<input/action>_is_present = false;` |
+
+Then, assign a `@GlobalPriority(x)` to the message server with `x` being the
+"level" of the message server in the Rebeca program and accounting for the
+auxiliary message servers in the level calculation.
 
 As an end-to-end example, here is reaction 2 in `Railroad.lf`:
 ```C
@@ -126,13 +136,13 @@ In Rebeca, this becomes:
     msgsrv reaction_2() {
         if (_mode == 0) {
             out_value = 0;
-            controller.input_out_w_reads(out_value);
+            controller.read_port_out_w(out_value);
             _out = 0;
                self.lf_schedule_outUpdated() after(0+0);
         }
         else if (_mode == 2) {
             out_value = 1;
-            controller.input_out_w_reads(out_value);
+            controller.read_port_out_w(out_value);
             _out = 1;
             self.lf_schedule_outUpdated(0) after(0+0);
         }
@@ -157,14 +167,14 @@ following code:
 ```
 
 Then for each input port the reactor has, create a `msgsrv` named
-`input_<port_name>_reads` with one parameter with the same type as the input
+`read_port_<port_name>` with one parameter with the same type as the input
 port's type. Inside the `msgsrv`, set the `_value` field and the `_is_present`
 field, then invoke the reaction triggered by this port.
 
 For example, the `signal` input port in the `Train` reactor produces the
 following code:
 ```C
-    msgsrv input_signal_reads(int _signal_value) {
+    msgsrv read_port_signal(int _signal_value) {
         signal_value = _signal_value;
         signal_is_present = true;
         self.reaction_3(); // Invoke the reaction triggered by this port.
@@ -173,8 +183,7 @@ following code:
 
 ### Step 7: In the `main` block, instantiate each `reactiveclass` based on the main reactor.
 
-For each reactor instance in LF's main reactor, instantiate a `reactiveclass`
-with `@priority(1)` and put downstream reactor instances' names in the second
+For each reactor instance in LF's main reactor, instantiate the corresponding `reactiveclass` and put downstream reactor instances' names in the second
 parantheses.
 
 For example, here is LF's main reactor:
@@ -192,8 +201,8 @@ main reactor {
 Here is the Rebeca version:
 ```
 main {
-    @priority(1) Train train_w(controller):();
-    @priority(1) Train train_e(controller):();
-    @priority(1) Controller controller(train_w, train_e):();
+    Train train_w(controller):();
+    Train train_e(controller):();
+    Controller controller(train_w, train_e):();
 }
 ```

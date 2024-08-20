@@ -4,7 +4,7 @@
  * https://www.scala-lang.org/old/node/54 See
  * https://shamsimam.github.io/papers/2014-agere-savina.pdf.
  *
- * Ping introduces a microstep delay using a logical action to break the
+ * Ping introduces a 1 nsec delay using a logical action to break the
  * causality loop.
  *
  * To get a sense, some (informal) results for 1,000,000 ping-pongs on my Mac:
