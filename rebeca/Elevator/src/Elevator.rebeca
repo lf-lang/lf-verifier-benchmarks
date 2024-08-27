@@ -1,0 +1,108 @@
+reactiveclass Control(10) {
+	knownrebecs {
+		Simulator s;
+	}
+	statevars {
+		int Call1_value;
+		int Call1_is_present;
+		int Call2_value;
+		int Call2_is_present;
+		int Stop_value;
+		int Stop_is_present;
+		int ReachFloor_value;
+		int ReachFloor_is_present;
+		int DoorStatus_value;
+		int DoorStatus_is_present;
+		
+		int MotorUp_value;
+		int MotorDown_value;
+		int DoorCommand_value;
+		
+		int Floor;
+		int DoorIsOpen;
+		int StopPressed;
+		int direction; // 1 = UP, -1 = DOWN, 0 = NOT MOVING
+	}
+	Control() {
+	
+	}
+	msgsrv reaction_1() {
+		if (
+			(!(StopPressed == 1) && !(DoorIsOpen == 1)) // CanMove
+			&& Floor != 1
+			&& direction == 0
+		) {
+			// [Danger!] It is possible that the door
+            // is not fully closed when the motor
+            // starts moving. This should be caught
+            // by the verifier. A better design involves
+            // a causal dependency from making sure that
+            // the door is closed and the start of the motor.
+            DoorCommand_value = 0;
+            s.input_DoorCommand_reads(DoorCommand_value);
+            
+            MotorDown_value = 1;
+            s.input_MotorDown_reads(MotorDown_value);
+		}
+	}
+}
+
+reactiveclass Simulator(10) {
+	knownrebecs {
+		Control c;
+	}
+	statevars {
+		// Outputs
+		int Call1_value;
+		int Call2_value;
+		int Stop_value;
+		int DoorStatus_value;
+		int ReachFloor_value;
+		
+		// Inputs
+		int MotorUp_value;
+		boolean MotorUp_is_present;
+		int MotorDown_value;
+		boolean MotorDown_is_present;
+		int DoorCommand_value;
+		boolean DoorCommand_is_present;
+		
+		// Actions
+		boolean MotorDone_is_present;
+		boolean CheckDoor_is_present;
+		boolean ResetDirection_is_present;
+		
+		// State variables
+		int direction;
+		int doorStatus;
+	}
+	Simulator() {
+		direction = 0;
+		doorStatus = 0;
+		self.reaction_1() after(0);
+		self.reaction_2() after(5000000000);
+		self.reaction_3() after(10000000000);
+	}
+	msgsrv reaction_1() {
+		Call1_value = 1;
+		c.input_Call1_reads(Call1_value);
+	}
+	msgsrv reaction_2() {
+		Call2_value = 1;
+		c.input_Call2_reads(Call2_value);
+	}
+	msgsrv reaction_3() {
+		Stop_value = 1;
+		c.input_Stop_reads(Stop_value);
+	}
+	msgsrv reaction_4() {
+		if (MotorUp_is_present && !MotorDown_is_present) {
+			direction = 1;
+			self.lf_schedule_MotorDone() after(4000000000+0);
+		}
+		else if (MotorDown_is_present && !MotorUp_is_present) {
+			direction = -1;
+			self.lf_schedule_MotorDone() after(4000000000+0);
+		}
+	}
+}
