@@ -20,12 +20,13 @@ reactiveclass Controller(10) {
         self.reaction_1();
     }
     // Level: 1
-    @GlobalPriority(1)
+    @GlobalPriority(2)
     // @GlobalPriority(1)
     msgsrv reaction_1() {
         out1_value = 1;
         t.read_port_in(out1_value) after (1000000000);
-        d.read_port_in(out1_value) after (1000000000);
+        out2_value = 2;
+        d.read_port_in(out2_value) after (1000000000);
     }
 }
 
@@ -40,13 +41,13 @@ reactiveclass Train(10) {
         // State variables
         int received;
     }
-    // Level: 2
-    @GlobalPriority(3)
+    // Level: 1
+    @GlobalPriority(2)
     // @GlobalPriority(2)
     msgsrv reaction_1() {
         received = in_value;
     }
-    @GlobalPriority(2)
+    @GlobalPriority(1)
     // @GlobalPriority(0) 	// Alternatively, given the after delay, 
     						// when we start a tag, we could execute 
     						// the input handlers first by giving them 
@@ -76,13 +77,13 @@ reactiveclass Door(10) {
         // State variables
         int received;
     }
-    // Level: 2
-    @GlobalPriority(3)
+    // Level: 1
+    @GlobalPriority(2)
     // @GlobalPriority(2)
     msgsrv reaction_1() {
         received = in_value;
     }
-    @GlobalPriority(2)
+    @GlobalPriority(1)
     // @GlobalPriority(0)
     msgsrv read_port_in(int _in_value) {
         in_value = _in_value;

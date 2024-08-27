@@ -1,0 +1,175 @@
+/**
+ * A simple test case that contains both cascade and parallel compositions. We
+ * use this program to figure out how to add @GlobalPriority to message servers.
+ *
+ * There are in general two constraints:
+ * 1. Reactions must be invoked in the order of their levels, which is a partial order (reactions can have the same level).
+ * 2. If a reaction depends on some inputs, the inputs' "read" handlers must fire _before_ the reaction does.
+ *
+ * Here we add a common Sink and explores an encoding that delivers the expected behavior.
+ * This encoding fires s.reaction_1 twice, but mark the latter one as skipped (by setting reaction_1_skipped=true).
+ * 
+ * This encoding also tries to reset reaction_1_skipped when we advance to a new timestamp.
+ * To observe this behavior, create a timer by uncommenting "self.reaction_1() after(2000000);"
+ *
+ * A few problems observed after creating a timer:
+ * 1. Using nanoseconds instead of microseconds (i.e., changing 000000 to 000000,000)
+ *    causes a strange problem where time stops advancing at 2000000000.
+ *    And self.reaction_1() gets scheduled only at t=2000000000.
+ *    This seems to be bug in Rebeca to me.
+ * 2. State space explosion in the form of "queue overflow". But I am not sure how such
+ *    overflow could possibly happen. Perhaps this is due to problem 1 again because
+ *    c.reaction_1 keeps rescheduling itself at the end.
+ *    Same bug as above?
+ * 3. The state space explosion is due to the reset mechanism (via last_firing_time)
+ *    and unbound variables from the application logic (sum in Sink).
+ *    This seems only avoidable by restricting the encoding and the application logic 
+ *    to not have unbound variables.
+ *    To address the unbound variable from the reset mechanism, it would great if
+ *    Rebeca can have another built-in variable that keeps track of the previous time,
+ *    similar to "now". 
+ */
+reactiveclass Controller(10) {
+    knownrebecs {
+        Train t;
+        Door d;
+    }
+    statevars {
+        // Outputs
+        int out1_value;
+        int out2_value;
+    }
+    Controller() {
+        self.reaction_1();
+    }
+    // Level: 1
+    @GlobalPriority(2)
+    msgsrv reaction_1() {        
+        out1_value = 1;
+        t.read_port_in(out1_value) after (1000000);
+        out2_value = 2;
+        d.read_port_in(out2_value) after (1000000);
+        
+        // IMPORTANT: Uncomment the line below to create a timer.
+        // self.reaction_1() after(2000000);
+    }
+}
+
+reactiveclass Train(10) {
+    knownrebecs {
+        Sink s;
+    }
+    statevars {
+    	// Outputs
+    	int out_value;
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        // State variables
+        int received;
+    }
+    // Level: 1
+    @GlobalPriority(2)
+    msgsrv reaction_1() {
+        received = in_value;
+        out_value = received;
+        s.read_port_in1(out_value);
+    }
+    @GlobalPriority(1)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_1();
+    }
+}
+
+reactiveclass Door(10) {
+    knownrebecs {
+        Sink s;
+    }
+    statevars {
+        // Outputs
+    	int out_value;
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        // State variables
+        int received;
+    }
+    // Level: 1
+    @GlobalPriority(2)
+    msgsrv reaction_1() {
+        received = in_value;
+        // IMPORTANT: Comment out below to not set this port.
+        // s.reaction_1 will stop being triggered.
+        out_value = received;
+        s.read_port_in2(out_value);
+    }
+    @GlobalPriority(1)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_1();
+    }
+}
+
+reactiveclass Sink(10) {
+	statevars {
+		int in1_value;
+		boolean in1_is_present;
+		int in2_value;
+		boolean in2_is_present;
+		int sum;
+		
+		boolean reaction_1_skipped;
+		int last_firing_time;			// FIXME: Blows up state space.
+	}
+	Sink() {
+		in1_is_present = false;
+		in2_is_present = false;
+		sum = 0;
+		
+		reaction_1_skipped = false;
+		last_firing_time = 0;
+	}
+	// We don't want to double fire reaction_1.
+	// Level: 2
+	@GlobalPriority(4)
+	msgsrv reaction_1() {
+		if (now > last_firing_time) {
+			/* Actual reaction body. */
+			sum = in1_value + in2_value; // FIXME: Blows up state space.
+			
+			// Mark reaction_1 as fired by updating last_firing_time.
+			last_firing_time = now;
+			reaction_1_skipped = false;
+		} else {
+			reaction_1_skipped = true; // A skipped invocation is a null message.
+		}
+	}
+	@GlobalPriority(3)
+	msgsrv read_port_in1(int _in1_value) {
+		in1_value = _in1_value;
+        in1_is_present = true;
+        // IMPORTANT: Does reaction_1 get invoked after read_port_in2? 
+        // Or it gets invoked immediately disregarding priorities.
+        // Answer: At time t, reaction_1 happens after both read_port_in1
+        //         and read_port_in2.
+        // Schedules reaction_1() unconditionally.
+        self.reaction_1(); 
+	}
+	@GlobalPriority(3)
+	msgsrv read_port_in2(int _in2_value) {
+		in2_value = _in2_value;
+        in2_is_present = true;
+        // Schedules reaction_1() unconditionally.
+       	self.reaction_1(); 
+	}
+}
+
+main {
+    Controller c(t, d):();
+    Train t(s):();
+    Door d(s):();
+    Sink s():();
+}

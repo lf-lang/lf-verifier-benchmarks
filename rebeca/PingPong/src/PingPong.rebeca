@@ -6,8 +6,10 @@
  * 1. Reactions must be invoked in the order of their levels, which is a partial order (reactions can have the same level).
  * 2. If a reaction depends on some inputs, the inputs' "read" handlers must fire _before_ the reaction does.
  *
- * Question: Does msgsrv with @GlobalPriority(0) get scheduled if it is scheduled by a msgsrv with @GlobalPriority(1)? 
- * My guess: No?
+ * Question: Does msgsrv with @GlobalPriority(0) get called 
+ *           if it is scheduled by a msgsrv with @GlobalPriority(1)
+ *           at the same time tag? 
+ * Answer:   Yes.
  */
 reactiveclass Ping(10) {
     knownrebecs {

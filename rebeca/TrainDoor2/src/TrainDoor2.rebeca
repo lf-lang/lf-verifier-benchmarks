@@ -1,0 +1,150 @@
+/**
+ * A simple test case that contains both cascade and parallel compositions. We
+ * use this program to figure out how to add @GlobalPriority to message servers.
+ *
+ * There are in general two constraints:
+ * 1. Reactions must be invoked in the order of their levels, which is a partial order (reactions can have the same level).
+ * 2. If a reaction depends on some inputs, the inputs' "read" handlers must fire _before_ the reaction does.
+ *
+ * Here we add a common Sink and explores an encoding that delivers the expected behavior.
+ * This encoding produces a single state when both input ports are present, which is great.
+ * Another advantage is that the reaction bodies can be copied verbatim.
+ * 
+ * Problem:
+ * 1. When a port is absent, the sink reaction would not fire. 
+ *    In this encoding, the sink reaction only fires when both ports are present.
+ *    So this encoding does not seem sufficient.
+ */
+reactiveclass Controller(10) {
+    knownrebecs {
+        Train t;
+        Door d;
+    }
+    statevars {
+        // Outputs
+        int out1_value;
+        int out2_value;
+    }
+    Controller() {
+        self.reaction_1();
+    }
+    // Level: 1
+    @GlobalPriority(2)
+    msgsrv reaction_1() {
+        out1_value = 1;
+        t.read_port_in(out1_value) after (1000000000);
+        out2_value = 2;
+        d.read_port_in(out2_value) after (1000000000);
+    }
+}
+
+reactiveclass Train(10) {
+    knownrebecs {
+        Sink s;
+    }
+    statevars {
+    	// Outputs
+    	int out_value;
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        // State variables
+        int received;
+    }
+    // Level: 1
+    @GlobalPriority(2)
+    msgsrv reaction_1() {
+        received = in_value;
+        out_value = received;
+        s.read_port_in1(out_value);
+    }
+    @GlobalPriority(1)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_1();
+    }
+}
+
+reactiveclass Door(10) {
+    knownrebecs {
+        Sink s;
+    }
+    statevars {
+        // Outputs
+    	int out_value;
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        // State variables
+        int received;
+    }
+    // Level: 1
+    @GlobalPriority(2)
+    msgsrv reaction_1() {
+        received = in_value;
+        // IMPORTANT: Comment out below to not set this port.
+        // s.reaction_1 will stop being triggered.
+        // out_value = received;
+        // s.read_port_in2(out_value);
+    }
+    @GlobalPriority(1)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_1();
+    }
+}
+
+reactiveclass Sink(10) {
+	statevars {
+		int in1_value;
+		boolean in1_is_present;
+		int in2_value;
+		boolean in2_is_present;
+		int sum;
+		int _times_fired_reaction_1;
+	}
+	Sink() {
+		in1_is_present = false;
+		in2_is_present = false;
+		sum = 0;
+		_times_fired_reaction_1 = 0;
+	}
+	// We don't want to double fire reaction_1.
+	// Level: 2
+	@GlobalPriority(4)
+	msgsrv reaction_1() {
+		// Actual reaction body.
+		sum = in1_value + in2_value;
+	}
+	@GlobalPriority(3)
+	msgsrv read_port_in1(int _in1_value) {
+		in1_value = _in1_value;
+        in1_is_present = true;
+        // IMPORTANT: Does reaction_1 get invoked after read_port_in2? 
+        // Or it gets invoked immediately disregarding priorities.
+        // Answer: At time t, reaction_1 happens after both read_port_in1
+        //         and read_port_in2.
+        _times_fired_reaction_1++;
+        if (_times_fired_reaction_1 == 2) {
+        	 self.reaction_1(); 
+        }
+	}
+	@GlobalPriority(3)
+	msgsrv read_port_in2(int _in2_value) {
+		in2_value = _in2_value;
+        in2_is_present = true;
+        _times_fired_reaction_1++;
+        if (_times_fired_reaction_1 == 2) {
+        	 self.reaction_1(); 
+        }
+	}
+}
+
+main {
+    Controller c(t, d):();
+    Train t(s):();
+    Door d(s):();
+    Sink s():();
+}
