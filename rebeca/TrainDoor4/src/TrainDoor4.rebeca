@@ -1,6 +1,6 @@
 /**
  * A simple test case that contains both cascade and parallel compositions. We
- * use this program to figure out how to add @GlobalPriority to message servers.
+ * use this program to figure out how to add @globalPriority to message servers.
  *
  * There are in general two constraints:
  * 1. Reactions must be invoked in the order of their levels, which is a partial order (reactions can have the same level).
@@ -43,8 +43,7 @@ reactiveclass Controller(10) {
         self.reaction_1();
     }
     // Level: 1
-    // @GlobalPriority(2)
-    @Priority(2)
+    @globalPriority(2)
     msgsrv reaction_1() {        
         out1_value = 1;
         t.read_port_in(out1_value) after (1000000);
@@ -52,7 +51,7 @@ reactiveclass Controller(10) {
         d.read_port_in(out2_value) after (1000000);
         
         // IMPORTANT: Uncomment the line below to create a timer.
-        // self.reaction_1() after(5000000);
+        self.reaction_1() after(5000000);
     }
 }
 
@@ -70,15 +69,13 @@ reactiveclass Train(10) {
         int received;
     }
     // Level: 1
-    // @GlobalPriority(2)
-    @Priority(2)
+    @globalPriority(2)
     msgsrv reaction_1() {
         received = in_value;
         out_value = received;
         s.read_port_in1(out_value);
     }
-    // @GlobalPriority(1)
-    @Priority(1)
+    @globalPriority(1)
     msgsrv read_port_in(int _in_value) {
         in_value = _in_value;
         in_is_present = true;
@@ -100,8 +97,7 @@ reactiveclass Door(10) {
         int received;
     }
     // Level: 1
-    // @GlobalPriority(2)
-    @Priority(2)
+    @globalPriority(2)
     msgsrv reaction_1() {
         received = in_value;
         // IMPORTANT: Comment out below to not set this port.
@@ -109,8 +105,7 @@ reactiveclass Door(10) {
         out_value = received;
         s.read_port_in2(out_value);
     }
-    // @GlobalPriority(1)
-    @Priority(1)
+    @globalPriority(1)
     msgsrv read_port_in(int _in_value) {
         in_value = _in_value;
         in_is_present = true;
@@ -139,8 +134,7 @@ reactiveclass Sink(10) {
 	}
 	// We don't want to double fire reaction_1.
 	// Level: 2
-	// @GlobalPriority(4)
-	@Priority(4)
+	@globalPriority(4)
 	msgsrv reaction_1() {
 		if (now > last_firing_time) {
 			/* Actual reaction body. */
@@ -153,8 +147,7 @@ reactiveclass Sink(10) {
 			reaction_1_skipped = true; // A skipped invocation is a null message.
 		}
 	}
-	// @GlobalPriority(3)
-	@Priority(3)
+	@globalPriority(3)
 	msgsrv read_port_in1(int _in1_value) {
 		in1_value = _in1_value;
         in1_is_present = true;
@@ -165,8 +158,7 @@ reactiveclass Sink(10) {
         // Schedules reaction_1() unconditionally.
         self.reaction_1(); 
 	}
-	// @GlobalPriority(3)
-	@Priority(3)
+	@globalPriority(3)
 	msgsrv read_port_in2(int _in2_value) {
 		in2_value = _in2_value;
         in2_is_present = true;
