@@ -1,0 +1,165 @@
+/**
+ * A simple test case that contains both cascade and parallel compositions. We
+ * use this program to figure out how to add @globalPriority to message servers.
+ *
+ * There are in general two constraints:
+ * 1. Reactions must be invoked in the order of their levels, which is a partial order (reactions can have the same level).
+ * 2. If a reaction depends on some inputs, the inputs' "read" handlers must fire _before_ the reaction does.
+ *
+ * Here we add a common Sink and explores an encoding that delivers the expected behavior.
+ * This encoding fires s.reaction_1 twice, but mark the latter one as skipped (by setting reaction_1_skipped=true).
+ * 
+ * This encoding also tries to reset reaction_1_skipped when we advance to a new timestamp.
+ * To observe this behavior, create a timer by uncommenting "self.reaction_1() after(2000000);"
+ *
+ * This encoding uses Edward's idea of scheduling a post-amable to clear the fired flags to prevent state space explosion.
+ */
+reactiveclass Controller(10) {
+    knownrebecs {
+        Train t;
+        Door d;
+    }
+    statevars {
+        // Outputs
+        int out1_value;
+        int out2_value;
+    }
+    Controller() {
+        self.reaction_1();
+    }
+    // Level: 1
+    @globalPriority(2)
+    msgsrv reaction_1() {        
+        out1_value = 1;
+        t.read_port_in(out1_value) after (1000000);
+        out2_value = 2;
+        d.read_port_in(out2_value) after (1000000);
+        
+        // IMPORTANT: Uncomment the line below to create a timer.
+        self.reaction_1() after(5000000);
+    }
+}
+
+reactiveclass Train(10) {
+    knownrebecs {
+        Sink s;
+    }
+    statevars {
+    	// Outputs
+    	int out_value;
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        // State variables
+        int received;
+    }
+    // Level: 1
+    @globalPriority(2)
+    msgsrv reaction_1() {
+        received = in_value;
+        out_value = received;
+        s.read_port_in1(out_value);
+    }
+    @globalPriority(1)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_1();
+    }
+}
+
+reactiveclass Door(10) {
+    knownrebecs {
+        Sink s;
+    }
+    statevars {
+        // Outputs
+    	int out_value;
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        // State variables
+        int received;
+    }
+    // Level: 1
+    @globalPriority(2)
+    msgsrv reaction_1() {
+        received = in_value;
+        // IMPORTANT: Comment out below to not set this port.
+        // s.reaction_1 will stop being triggered.
+        out_value = received;
+        s.read_port_in2(out_value);
+    }
+    @globalPriority(1)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_1();
+    }
+}
+
+reactiveclass Sink(10) {
+	statevars {
+		int in1_value;
+		boolean in1_is_present;
+		int in2_value;
+		boolean in2_is_present;
+		int sum;
+		boolean reaction_1_scheduled;
+	}
+	Sink() {
+		in1_is_present = false;
+		in2_is_present = false;
+		sum = 0;
+		reaction_1_scheduled = false;
+	}
+	// We don't want to double fire reaction_1.
+	// Level: 2
+	@globalPriority(4)
+	msgsrv reaction_1() {
+		/* Actual reaction body. */
+		sum = in1_value + in2_value; // FIXME: Blows up state space.
+		
+		// Schedule a post-amble to clear its boolean flags.
+		self.reaction_1_postamble();
+	}
+	// A reaction has its own post-amble because if we want
+	// the reaction to do the flag reset, it can only know
+	// that it has fired. It does not know whether other reactions
+	// have fired too. "Each reaction cleans up after itself"
+	// can result in reseting fewer number of flags in each iteration.
+	// IMPORTANT: The priority of the postamble must be greater than
+	// the priority of all reactions, so that this is executed last
+	// when there are concurrent events.
+	@globalPriority(5)
+	msgsrv reaction_1_postamble() {
+		reaction_1_scheduled = false;
+	}
+	@globalPriority(3)
+	msgsrv read_port_in1(int _in1_value) {
+		in1_value = _in1_value;
+        in1_is_present = true;
+        // Do not re-schedule reaction_1 if one of
+        // the input ports has scheduled it already.
+        if (!reaction_1_scheduled) {
+        	self.reaction_1();
+        	reaction_1_scheduled = true;
+        }
+	}
+	@globalPriority(3)
+	msgsrv read_port_in2(int _in2_value) {
+		in2_value = _in2_value;
+        in2_is_present = true;
+       	if (!reaction_1_scheduled) {
+        	self.reaction_1();
+        	reaction_1_scheduled = true;
+        }
+	}
+}
+
+main {
+    @Priority(1) Controller c(t, d):();
+    @Priority(1) Train t(s):();
+    @Priority(1) Door d(s):();
+    @Priority(2) Sink s():();
+}
