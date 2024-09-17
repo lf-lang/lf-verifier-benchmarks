@@ -18,15 +18,33 @@ reactiveclass Controller(10) {
     knownrebecs {
         Train t;
         Door d;
+        Door2 d2;
     }
     statevars {
         // Outputs
         int out1_value;
         int out2_value;
+        int out3_value;
+        
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        
+        // Actions
+        boolean another_is_present;
     }
     Controller() {
+    	out1_value = 0;
+    	out2_value = 0;
+    	out3_value = 0;
+    	in_value = 0;
+    	in_is_present = false;
+    	another_is_present = false;
+    	
+		// Scheduled by startup.
         self.reaction_1();
     }
+    
     // Level: 1
     @globalPriority(2)
     msgsrv reaction_1() {        
@@ -34,9 +52,27 @@ reactiveclass Controller(10) {
         t.read_port_in(out1_value) after (1000000);
         out2_value = 2;
         d.read_port_in(out2_value) after (1000000);
-        
-        // IMPORTANT: Uncomment the line below to create a timer.
-        self.reaction_1() after(5000000);
+        out3_value = 3;
+        d2.read_port_in(out3_value) after (1000000);
+    }
+    
+    // Level: 3
+    @globalPriority(6)
+    msgsrv reaction_2() {
+        self.lf_schedule_another() after (5000000);
+    }
+    
+    @globalPriority(7)
+    msgsrv lf_schedule_another() {
+    	another_is_present = true;
+        self.reaction_1();
+    }
+    
+    @globalPriority(5)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_2();
     }
 }
 
@@ -98,27 +134,68 @@ reactiveclass Door(10) {
     }
 }
 
+// FIXME: We need to duplicate Door because in3 is hardcoded.
+reactiveclass Door2(10) {
+    knownrebecs {
+        Sink s;
+    }
+    statevars {
+        // Outputs
+    	int out_value;
+        // Inputs
+        int in_value;
+        boolean in_is_present;
+        // State variables
+        int received;
+    }
+    // Level: 1
+    @globalPriority(2)
+    msgsrv reaction_1() {
+        received = in_value;
+        // IMPORTANT: Comment out below to not set this port.
+        // s.reaction_1 will stop being triggered.
+        out_value = received;
+        s.read_port_in3(out_value);
+    }
+    @globalPriority(1)
+    msgsrv read_port_in(int _in_value) {
+        in_value = _in_value;
+        in_is_present = true;
+        self.reaction_1();
+    }
+}
+
 reactiveclass Sink(10) {
+	knownrebecs {
+        Controller c;
+    }
 	statevars {
 		int in1_value;
 		boolean in1_is_present;
 		int in2_value;
 		boolean in2_is_present;
+		int in3_value;
+		boolean in3_is_present;
 		int sum;
+		int out_value;
+		// Auxiliary
 		boolean reaction_1_scheduled;
 	}
 	Sink() {
 		in1_is_present = false;
 		in2_is_present = false;
+		in3_is_present = false;
 		sum = 0;
+		out_value = 0;
 		reaction_1_scheduled = false;
 	}
-	// We don't want to double fire reaction_1.
 	// Level: 2
 	@globalPriority(4)
 	msgsrv reaction_1() {
 		/* Actual reaction body. */
-		sum = in1_value + in2_value; // Does not blow up state space because sum is not incremented.
+		sum = in1_value + in2_value + in3_value; // FIXME: Blows up state space.
+		out_value = sum;
+        c.read_port_in(out_value) after (0);
 		
 		// Schedule a post-amble to clear its boolean flags.
 		self.reaction_1_postamble();
@@ -155,11 +232,21 @@ reactiveclass Sink(10) {
         	reaction_1_scheduled = true;
         }
 	}
+	@globalPriority(3)
+	msgsrv read_port_in3(int _in3_value) {
+		in3_value = _in3_value;
+        in3_is_present = true;
+       	if (!reaction_1_scheduled) {
+        	self.reaction_1();
+        	reaction_1_scheduled = true;
+        }
+	}
 }
 
 main {
-    @Priority(1) Controller c(t, d):();
-    @Priority(1) Train t(s):();
-    @Priority(1) Door d(s):();
-    @Priority(2) Sink s():();
+    Controller c(t, d, d2):();
+    Train t(s):();
+    Door d(s):();
+    Door2 d2(s):();
+    Sink s(c):();
 }

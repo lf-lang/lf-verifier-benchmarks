@@ -1,4 +1,5 @@
 property { 
-
-
+	Assertion {
+		BoundedSum: s.sum < 5;
+	}
 }

@@ -112,12 +112,13 @@ following conditions.
 | The reaction is timer-driven. | Schedule the next timer-driven invocation. | `self.<reaction_name>() after(<timer_period>);` |
 | The reaction is triggered by inputs or actions. | Clear the `_is_present` field for each input or action. | `<input/action>_is_present = false;` |
 
-Then, assign a `@GlobalPriority(x)` to the message server with `x` being the
+Then, assign a `@globalPriority(x)` to the message server with `x` being _twice_ the
 "level" of the message server in the Rebeca program and accounting for the
 auxiliary message servers in the level calculation.
 
 As an end-to-end example, here is reaction 2 in `Railroad.lf`:
 ```C
+    // This reaction has level 3, for example.
     reaction(t) -> out, outUpdated {=
         if (self->_mode == 0) {
             lf_set(out, 0);
@@ -133,6 +134,7 @@ As an end-to-end example, here is reaction 2 in `Railroad.lf`:
 ```
 In Rebeca, this becomes:
 ```C
+    @globalPriority(6) // 6 = 2 * 3
     msgsrv reaction_2() {
         if (_mode == 0) {
             out_value = 0;
@@ -165,6 +167,7 @@ following code:
         self.reaction_3();
     }
 ```
+A `lf_schedule_` message server should carry a `@globalPriority` of the action-scheduling reaction's global priority + 1.
 
 Then for each input port the reactor has, create a `msgsrv` named
 `read_port_<port_name>` with one parameter with the same type as the input
@@ -180,6 +183,7 @@ following code:
         self.reaction_3(); // Invoke the reaction triggered by this port.
     }
 ```
+A `read_port_` message server should carry a `@globalPriority` of the global priority of the reaction triggered by the input port - 1.
 
 ### Step 7: In the `main` block, instantiate each `reactiveclass` based on the main reactor.
 
