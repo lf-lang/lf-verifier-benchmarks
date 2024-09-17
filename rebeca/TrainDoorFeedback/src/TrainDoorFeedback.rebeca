@@ -1,24 +1,11 @@
 /**
- * A simple test case that contains both cascade and parallel compositions. We
- * use this program to figure out how to add @globalPriority to message servers.
- *
- * There are in general two constraints:
- * 1. Reactions must be invoked in the order of their levels, which is a partial order (reactions can have the same level).
- * 2. If a reaction depends on some inputs, the inputs' "read" handlers must fire _before_ the reaction does.
- *
- * Here we add a common Sink and explores an encoding that delivers the expected behavior.
- * This encoding fires s.reaction_1 twice, but mark the latter one as skipped (by setting reaction_1_skipped=true).
- * 
- * This encoding also tries to reset reaction_1_skipped when we advance to a new timestamp.
- * To observe this behavior, create a timer by uncommenting "self.reaction_1() after(2000000);"
- *
- * This encoding uses Edward's idea of scheduling a post-amable to clear the fired flags to prevent state space explosion.
+ * A simple test case that contains both cascade and parallel compositions, and feedback.
  */
 reactiveclass Controller(10) {
     knownrebecs {
         Train t;
         Door d;
-        Door2 d2;
+        Door d2;
     }
     statevars {
         // Outputs
@@ -62,7 +49,7 @@ reactiveclass Controller(10) {
         self.lf_schedule_another() after (5000000);
     }
     
-    @globalPriority(7)
+    @globalPriority(1)
     msgsrv lf_schedule_another() {
     	another_is_present = true;
         self.reaction_1();
@@ -116,6 +103,10 @@ reactiveclass Door(10) {
         boolean in_is_present;
         // State variables
         int received;
+        int id;
+    }
+    Door(int _id) {
+    	id = _id;
     }
     // Level: 1
     @globalPriority(2)
@@ -124,7 +115,14 @@ reactiveclass Door(10) {
         // IMPORTANT: Comment out below to not set this port.
         // s.reaction_1 will stop being triggered.
         out_value = received;
-        s.read_port_in2(out_value);
+        
+        // One trick to make the Door msgsrv reusable,
+        // but in general this does not work because
+        // globalPriority is not parameterizable.
+        if (id == 1)
+        	s.read_port_in2(out_value);
+        else if (id == 2)
+        	s.read_port_in3(out_value);
     }
     @globalPriority(1)
     msgsrv read_port_in(int _in_value) {
@@ -246,7 +244,9 @@ reactiveclass Sink(10) {
 main {
     Controller c(t, d, d2):();
     Train t(s):();
-    Door d(s):();
-    Door2 d2(s):();
+    Door d(s):(1);
+    Door d2(s):(2);
+    // Door d(s):();
+    // Door2 d2(s):();
     Sink s(c):();
 }

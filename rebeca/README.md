@@ -167,7 +167,7 @@ following code:
         self.reaction_3();
     }
 ```
-A `lf_schedule_` message server should carry a `@globalPriority` of the action-scheduling reaction's global priority + 1.
+A `lf_schedule_` message server should carry a `@globalPriority` of the global priority of the reaction triggered by the action - 1.
 
 Then for each input port the reactor has, create a `msgsrv` named
 `read_port_<port_name>` with one parameter with the same type as the input
