@@ -208,6 +208,9 @@ reactiveclass Sink(10) {
 	// when there are concurrent events.
 	@globalPriority(5)
 	msgsrv reaction_1_postamble() {
+		in1_is_present = false;
+		in2_is_present = false;
+		in3_is_present = false;
 		reaction_1_scheduled = false;
 	}
 	@globalPriority(3)

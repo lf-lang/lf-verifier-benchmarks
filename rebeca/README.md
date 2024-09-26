@@ -40,6 +40,11 @@ For each input port, create a `_value` and a
 
 For an action, do the same. If the action is pure (i.e.,
 untyped), only the `_is_present` field is needed.
+
+If a reaction has multiple triggers, an auxiliary boolean variable named
+`<reaction_name>_scheduled` needs to be declared.
+
+Here is a concrete example of the `Train` reactor:
 ```
     statevars {
         // State variables
@@ -55,6 +60,9 @@ untyped), only the `_is_present` field is needed.
         boolean toModeAway_is_present;
         boolean toModeWait_is_present;
         boolean toModeBridge_is_present;
+
+        // In this example, there is no reaction triggered by multiple inputs. But if there is (assuming reaction 1 is), we need the following line.
+        // boolean reaction_1_scheduled;
     }
 ```
 
@@ -75,12 +83,26 @@ Thus in Rebeca's `Train` constructor, we  need to initialize them.
 Since `Train`'s reaction 1 is triggered by `startup` and reaction 2 is triggered
 by a timer with an offset of `1 nsec` and a period of `1 sec`, we need to
 schedule these reactions' first invocations.
+
+`_is_present` variables and `_scheduled` variables should be initialized
+to `false` in the constructor.
+
 ```
     Train() {
         _out = 0;
         _mode = 0;
         self.reaction_1(); // Schedule the startup reaction.
         self.reaction_2() after(1); // Schedule the first timer with an offset of 1 nsec.
+
+        // Setting the _is_present variables to false.
+        signal_is_present = false;
+        outUpdated_is_present = false;
+        toModeAway_is_present = false;
+        toModeWait_is_present = false;
+        toModeBridge_is_present = false;
+
+        // In this example, there is no reaction triggered by multiple inputs. But if there is (assuming reaction 1 is), we need the following line.
+        // reaction_1_scheduled = false;
     }
 ```
 
@@ -110,7 +132,7 @@ following conditions.
 | Condition | Postamble | Rebeca | 
 | :---------------- | :------ | :------ |
 | The reaction is timer-driven. | Schedule the next timer-driven invocation. | `self.<reaction_name>() after(<timer_period>);` |
-| The reaction is triggered by inputs or actions. | Clear the `_is_present` field for each input or action. | `<input/action>_is_present = false;` |
+| The reaction is triggered by inputs or actions. | Schedule a postamble msgsrv. | `self.<reaction_name>_postamble();` |
 
 Then, assign a `@globalPriority(x)` to the message server with `x` being _twice_ the
 "level" of the message server in the Rebeca program and accounting for the
@@ -150,10 +172,36 @@ In Rebeca, this becomes:
         }
         // Postamble: schedule the next timer-driven invocation.
         self.reaction_2() after(1000000000);
+        // This reaction is not triggered by input ports or actions. But if it is, use the following line.
+        // self.reaction_2_postamble();
     }
 ```
 
-### Step 6: Create auxiliary message servers for action scheduling and input port reading.
+### Step 6: Create auxiliary message servers.
+
+#### Reaction postamble
+
+Each reaction needs to have a postamble `msgsrv` for resetting
+variables in the Rebeca encoding. Inside the `msgsrv`, the `_is_present`
+fields of input ports and actions triggering the reaction needs to be
+set to `false`. In addition, if the reaction has a `_scheduled`
+variable, it also needs to be set to `false`.
+
+The postamble `msgsrv` must have a higher `@globalPriority` than all reactions in
+the same reactiveclass.
+
+Here is an example from the `Sink` reactor in `TrainDoorFeedback`.
+```
+@globalPriority(5)
+msgsrv reaction_1_postamble() {
+    in1_is_present = false;
+    in2_is_present = false;
+    in3_is_present = false;
+    reaction_1_scheduled = false;
+}
+```
+
+#### Scheduling actions
 
 For each action available, create a `msgsrv` named `lf_schedule_<action>`.
 Inside the `msgsrv`, set the action's `_is_present` field to `true` and invoke
@@ -169,7 +217,9 @@ following code:
 ```
 A `lf_schedule_` message server should carry a `@globalPriority` of the global priority of the reaction triggered by the action - 1.
 
-Then for each input port the reactor has, create a `msgsrv` named
+#### Reading input ports
+
+For each input port the reactor has, create a `msgsrv` named
 `read_port_<port_name>` with one parameter with the same type as the input
 port's type. Inside the `msgsrv`, set the `_value` field and the `_is_present`
 field, then invoke the reaction triggered by this port.
@@ -183,7 +233,39 @@ following code:
         self.reaction_3(); // Invoke the reaction triggered by this port.
     }
 ```
-A `read_port_` message server should carry a `@globalPriority` of the global priority of the reaction triggered by the input port - 1.
+A `read_port_` message server should carry a `@globalPriority` of the
+global priority of the reaction triggered by the input port - 1.
+
+If multiple triggers (input ports and actions) trigger the same
+reaction, in each of the `read_port_` and `lf_schedule_` auxiliary
+message server, the following logic needs to be added to prevent
+scheduling the same reaction multiple times.
+```
+// Do not re-schedule reaction_1 if one of
+// the input ports has scheduled it already.
+if (!reaction_1_scheduled) {
+    self.reaction_1();
+    reaction_1_scheduled = true;
+}
+```
+
+A full example including the above logic is `read_port_in1` message
+server in `TrainDoorFeedback`.
+```
+@globalPriority(3)
+msgsrv read_port_in1(int _in1_value) {
+    // Register the input port value.
+    in1_value = _in1_value;
+    in1_is_present = true;
+    
+    // Do not re-schedule reaction_1 if one of
+    // the input ports has scheduled it already.
+    if (!reaction_1_scheduled) {
+        self.reaction_1();
+        reaction_1_scheduled = true;
+    }
+}
+```
 
 ### Step 7: In the `main` block, instantiate each `reactiveclass` based on the main reactor.
 
