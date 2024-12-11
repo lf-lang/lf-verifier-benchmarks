@@ -1,5 +1,6 @@
 **/mod-gen
 **/src-gen
+**/include
 **/bin
 **/.project
 /results
