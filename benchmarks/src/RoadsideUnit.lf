@@ -2,17 +2,17 @@ target C
 
 reactor Vehicle {
 	
-	input grant:int;
+	input grant:int
     
-    output done:int;
-    output request:int;
+    output done:int
+    output request:int
     
     // The assumption baked in here is quite strong.
     // An additional delay or a physical action
     // will be more suitable for modeling.
-    logical action finish(5 sec);
+    logical action finish(5 sec)
     
-    state duration_of_use:time(1 sec);
+    state duration_of_use:time=1 sec
     
     reaction(startup) -> request {=
         // info_print("Vehicle %d has arrived.", self->bank_index);
@@ -32,22 +32,22 @@ reactor Vehicle {
 
 reactor RSU {
     
-    input request_1:int;
-    input request_2:int;
-    input done_1:int;
-    input done_2:int;
-    output grant_1:int;
-    output grant_2:int;
+    input request_1:int
+    input request_2:int
+    input done_1:int
+    input done_2:int
+    output grant_1:int
+    output grant_2:int
     
-    state assigned:int;
-    state available_time:int;
-    state const_wait:int; // This can in fact be dynamically calculated and can still produce the same issue.
-    state current_time:int;
-    state _done_1:int;
-    state _done_2:int;
+    state assigned:int
+    state available_time:int
+    state const_wait:int // This can in fact be dynamically calculated and can still produce the same issue.
+    state current_time:int
+    state _done_1:int
+    state _done_2:int
 
-    logical action issue_grant_1;
-    logical action issue_grant_2;
+    logical action issue_grant_1
+    logical action issue_grant_2
 
     reaction(startup) {=
         self->const_wait = 1; // 1 second.
@@ -84,17 +84,17 @@ reactor RSU {
     =}
 }
 
-@property(name="mutual_exclusion", tactic="bmc", spec="G[0, 10 sec](!(RoadsideUnit_v1_grant == 1 && RoadsideUnit_v2_grant == 1))", expect=true)
+@property(name="mutual_exclusion", tactic="bmc", spec="G[0, 10 sec](!(RoadsideUnit.v1.grant == 1 && RoadsideUnit.v2.grant == 1))", expect=true)
 main reactor {
     
     v1 = new Vehicle()
     v2 = new Vehicle()
     rsu = new RSU()
     
-    v1.request -> rsu.request_1;
-    v2.request -> rsu.request_2;
-    v1.done -> rsu.done_1;
-    v2.done -> rsu.done_2;
-    rsu.grant_1 -> v1.grant;
-    rsu.grant_2 -> v2.grant;
+    v1.request -> rsu.request_1
+    v2.request -> rsu.request_2
+    v1.done -> rsu.done_1
+    v2.done -> rsu.done_2
+    rsu.grant_1 -> v1.grant
+    rsu.grant_2 -> v2.grant
 }

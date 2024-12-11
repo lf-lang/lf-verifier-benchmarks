@@ -1,13 +1,8 @@
 target C;
 
-preamble {=
-    typedef int c_frame_t;
-    typedef int l_frame_t;
-=}
-
 reactor Camera {
-    output out  :{=c_frame_t=};
-    state  frame:{=c_frame_t=};
+    output out  :int
+    state  frame:int
     timer  t(0, 17 msec); // 60 fps
     reaction(t) -> out {=
         // Capture a frame.
@@ -17,8 +12,8 @@ reactor Camera {
 }
 
 reactor LiDAR {
-    output out  :{=l_frame_t=};
-    state  frame:{=l_frame_t=};
+    output out  :int
+    state  frame:int
     timer  t(0, 34 msec); // 30 fps
     reaction(t) -> out {=
         // Capture a frame.
@@ -28,16 +23,16 @@ reactor LiDAR {
 }
 
 reactor Pedal {
-    output out:int;
-    physical action a;
+    output out:int
+    physical action a
     reaction(a) -> out {=
         lf_set(out, 1); =}
 }
 
 reactor Brakes {
-    input inADAS:int;
-    input inPedal:int;
-    state brakesApplied:int(0);
+    input inADAS:int
+    input inPedal:int
+    state brakesApplied:int = 0
     reaction(inADAS, inPedal) {=
         // Actuate brakes.
         self->brakesApplied = 1;
@@ -45,12 +40,12 @@ reactor Brakes {
 }
 
 reactor ADASProcessor {
-    input in1:{=l_frame_t=};
-    input in2:{=c_frame_t=};
-    output out1:int;
-    output out2:int;
-    logical action a(50 msec);
-    state requestStop:int;
+    input in1:int
+    input in2:int
+    output out1:int
+    output out2:int
+    logical action a(50 msec)
+    state requestStop:int
     reaction(in1,in2) -> a {=
         // ... Detect danger
 		// and request stop.
@@ -64,13 +59,13 @@ reactor ADASProcessor {
 }
 
 reactor Dashboard {
-    input in:int;
-    state received:int;
-    reaction(in) {=
+    input _in:int
+    state received:int
+    reaction(_in) {=
         self->received = 1; =}
 }
 
-@property(name="responsive", tactic="bmc", spec="G[0, 10 ms]((ADASModel_l_reaction_0 && (F[0](ADASModel_p_requestStop == 1))) ==> (F[0, 55 ms]( ADASModel_b_brakesApplied == 1 )))", expect=true)
+@property(name="responsive", tactic="bmc", spec="G[0, 10 ms]((ADASModel.l.reaction_0 && (F[0](ADASModel.p.requestStop == 1))) ==> (F[0, 55 ms]( ADASModel.b.brakesApplied == 1 )))", expect=true)
 main reactor ADASModel {
     c = new Camera();
     l = new LiDAR();
@@ -80,7 +75,7 @@ main reactor ADASModel {
     // p = new Pedal();
     l.out -> p.in1; 
     c.out -> p.in2;
-    p.out2 -> d.in;
+    p.out2 -> d._in;
     p.out1 -> b.inADAS after 5 msec;
     // p.out -> b.inPedal;
 }

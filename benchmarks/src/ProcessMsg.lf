@@ -5,8 +5,8 @@ reactor Task {
     output out:int
 
     state messageSent:int
-    state counter:int(0)
-    state panic:int(0)
+    state counter:int=0
+    state panic:int=0
 
     timer t(0, 1 nsec)
 
@@ -32,7 +32,7 @@ reactor Task {
     =}
 }
 
-@property(name="panic_free", tactic="bmc", spec="G[5 nsec](ProcessMsg_task_panic != 1)", expect=true)
+@property(name="panic_free", tactic="bmc", spec="G[5 nsec](ProcessMsg.task.panic != 1)", expect=true)
 main reactor {
     task = new Task()
     task.out -> task.in

@@ -2,11 +2,11 @@ target C;
 
 reactor Controller {
     
-    output out:int;
-    output out2:int;
-    state fault:int;
+    output out:int
+    output out2:int
+    state fault:int
 
-    logical action turnOff(1 sec):int;
+    logical action turnOff(1 sec):int
 
     @label("Computation")
     reaction(startup) -> out, out2, turnOff {=
@@ -29,7 +29,7 @@ reactor Controller {
     =}
 }
 
-@property(name="machine_stops_within_1_sec", tactic="bmc", spec="G[0, 1 sec]((Alarm_c_reaction_0) ==> F(0, 1 sec](Alarm_c_reaction_1)))", expect=true)
+@property(name="machine_stops_within_1_sec", tactic="bmc", spec="G[0, 1 sec]((Alarm.c.reaction_0) ==> F(0, 1 sec](Alarm.c.reaction_1)))", expect=true)
 main reactor {
    c =  new Controller();
 }

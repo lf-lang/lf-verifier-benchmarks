@@ -3,14 +3,14 @@ target C {
 }
 reactor Fib {
     output out:int
-    timer t(0, 1 nsec);
+    timer t(0, 1 nsec)
     logical action incrementN
     logical action saveLast
     logical action saveSecondLast
-    state N:int(0)
-    state result:int(0)
-    state lastResult:int(0)
-    state secondLastResult:int(0)
+    state N:int=0
+    state result:int=0
+    state lastResult:int=0
+    state secondLastResult:int=0
     reaction(t) -> out, incrementN, saveLast, saveSecondLast {=
         if (self->N < 2) {
             self->result = 1;
@@ -41,7 +41,7 @@ reactor Printer {
     =}
 }
 
-@property(name="correctness", tactic="bmc", spec="G[10 nsec](Fibonacci_printer_reaction_0 ==> Fibonacci_printer_result == 89)", expect=true)
+@property(name="correctness", tactic="bmc", spec="G[10 nsec](Fibonacci.printer.reaction_0 ==> Fibonacci.printer.result == 89)", expect=true)
 main reactor {
     fib = new Fib()
     printer = new Printer()

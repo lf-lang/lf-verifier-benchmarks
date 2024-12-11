@@ -9,9 +9,9 @@ reactor _TrafficLight {
     output sigR:int
     output sigG:int
     output sigY:int
-    state count:int(0)
+    state count:int=0
     // 0 = RED, 1 = GREEN, 2 = YELLOW, 3 = PENDING
-    state _mode:int(0)
+    state _mode:int=0
     logical action resetCount
     timer t(0, 1 sec)
     
@@ -76,7 +76,7 @@ reactor Pedestrian {
     =}
 }
 
-@property(name="green_reachable", tactic="bmc", spec="F[0, 5 sec](TrafficLight_t__mode == 1)", expect=false)
+@property(name="green_reachable", tactic="bmc", spec="F[0, 5 sec](TrafficLight.t._mode == 1)", expect=false)
 main reactor {
     t = new _TrafficLight()
     p = new Pedestrian()

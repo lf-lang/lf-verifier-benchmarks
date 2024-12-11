@@ -14,9 +14,9 @@
 target C;
 
 reactor Client {
-    input in:int;
-    output out:int;
-    state req:int(0);
+    input in:int
+    output out:int
+    state req:int=0
 
     reaction(startup) -> out {=
         // Sends a query
@@ -32,10 +32,10 @@ reactor Client {
 
 reactor Server {
     
-    input in:int;
-    output out:int;
-    state error:int;
-    logical action err;
+    input in:int
+    output out:int
+    state error:int
+    logical action err
 
     reaction(in) -> out, err {=
         if (in->value == 0) {
@@ -52,7 +52,7 @@ reactor Server {
     =}
 }
 
-@property(name="success", tactic="bmc", spec="(F[0, 1 sec](SafeSend_c_reaction_1))", expect=true)
+@property(name="success", tactic="bmc", spec="(F[0, 1 sec](SafeSend.c.reaction_1))", expect=true)
 main reactor {
     c = new Client();
     s = new Server();

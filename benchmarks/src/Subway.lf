@@ -1,14 +1,14 @@
 target C;
 
 reactor UMS {
-    input query:int;
-    input req:int;
-    input done:int;
-    output response:int;
-    output grant:int;
-    state pos:int; // 0 -> AB, 1 -> BC, else ill positioned.
-    state inUse:int; // 0 -> false, 1 -> true.
-    logical action issue;
+    input query:int
+    input req:int
+    input done:int
+    output response:int
+    output grant:int
+    state pos:int // 0 -> AB, 1 -> BC, else ill positioned.
+    state inUse:int // 0 -> false, 1 -> true.
+    logical action issue
 
     reaction(startup) {=
         self->pos = 0;
@@ -38,13 +38,13 @@ reactor UMS {
 }
 
 reactor Train {
-    output query:int;
-    output req:int;
-    output done:int;
-    input response:int;
-    input grant:int;
-    logical action wait(2 minute);
-    logical action passing(10 minute);
+    output query:int
+    output req:int
+    output done:int
+    input response:int
+    input grant:int
+    logical action wait(2 minute)
+    logical action passing(10 minute)
     
     reaction(startup) -> query {=
         lf_set(query, 1);
@@ -67,14 +67,14 @@ reactor Train {
     =}
 }
 
-@property(name="ums_receives_done_within_11_minutes", tactic="bmc", spec="F[0, 11 minute](Subway_u_reaction_3)", expect=false)
+@property(name="ums_receives_done_within_11_minutes", tactic="bmc", spec="F[0, 11 minute](Subway.u.reaction_3)", expect=false)
 main reactor {
-    u = new UMS();
-    t = new Train();
+    u = new UMS()
+    t = new Train()
 
-    t.done -> u.done;
-    t.query -> u.query;
-    t.req -> u.req;
-    u.grant -> t.grant;
-    u.response -> t.response;
+    t.done -> u.done
+    t.query -> u.query
+    t.req -> u.req
+    u.grant -> t.grant
+    u.response -> t.response
 }
