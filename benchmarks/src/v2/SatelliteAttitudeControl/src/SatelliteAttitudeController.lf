@@ -1,0 +1,235 @@
+/**
+ * A PID controller directing the orientation of a satellite
+ * 
+ * @author Tassilo Tanneberger
+ * @author Erling Jellum
+ * @author Shaokai Lin
+ */
+target C {
+  // scheduler: {
+  //   type: STATIC,
+  //   mapper: EGS
+  // },
+  scheduler: STATIC,
+  build-type: Release,
+  platform: FlexPRET,
+  cmake-include: "SatelliteAttitudeController.cmake",  // logging: Debug,
+  workers: 2,
+  timeout: 1100001 usec
+}
+
+preamble {=
+    #include <string.h>
+    #include "satellite_attitude_controller.h"
+
+    #define NUM_ITER 1000
+    #define MEASURE_EXECUTION_TIMES
+  // #define PRINT_LAGS
+
+    #include "instrumentation.h"
+=}
+
+reactor Controller(Kp_float: float = 0.3, Ki_float: float = 0.1, Kd_float: float = 0.0) {
+  input current_angle: IntVec3
+  input current_angular_speed: IntVec3
+  input desired_angle: IntVec3
+  output control_signal: IntVec3
+
+  input dummyIn: bool
+  output dummyOut: bool
+
+  state _state: ControllerState
+  state completion_lag: int*
+  state execution_time: int*
+  state start_lag: int*
+  state num_iter: int = 0
+
+  @wcet("1 msec")
+  reaction(startup) {=
+    self->completion_lag = (int*)calloc(NUM_ITER, sizeof(int));
+    self->execution_time = (int*)calloc(NUM_ITER, sizeof(int));
+    self->start_lag = (int*)calloc(NUM_ITER, sizeof(int));
+
+    controller_startup_reaction(&self->_state, self->Kp_float, self->Ki_float, self->Kd_float);
+    #ifndef NDEBUG
+    lf_print("Controller gains: Kp=%i Ki=%i Kd=%i", self->_state.Kp, self->_state.Ki, self->_state.Kd);
+    #endif
+  =}
+
+  @wcet("1 usec")
+  reaction(desired_angle) {=
+    controller_user_input_reaction(&self->_state, &desired_angle->value);
+    #ifndef NDEBUG
+    lf_print("Desired angle set to %i %i %i", self->_state.desired_angle.x, self->_state.desired_angle.y, self->_state.desired_angle.z);
+    #endif
+  =}
+
+  @wcet("173 usec")
+  reaction(current_angle, current_angular_speed) -> control_signal {=
+    EXEC_BEGIN();
+    PRINT_LAG(Controller);
+    #ifndef NDEBUG
+      lf_print("Got current_angle=%i %i %i", current_angle->value.x, current_angle->value.y, current_angle->value.z);
+    #endif
+
+    controller_run_reaction(&self->_state, &current_angle->value, &current_angular_speed->value, &control_signal->value);
+    lf_set_present(control_signal);
+    EXEC_END();
+  =}
+
+  @wcet("1 msec")
+  reaction(dummyIn) -> dummyOut {=
+    EXEC_REPORT(Controller);
+    lf_set(dummyOut, true);
+  =}
+}
+
+reactor Motor(lfDeadline: time = 100 usec) {
+  input in: IntVec3
+  input dummyIn: bool
+
+  state completion_lag: int*
+  state execution_time: int*
+  state start_lag: int*
+  state num_iter: int = 0
+
+  @wcet("1 msec")
+  reaction(startup) {=
+    self->start_lag = (int*)calloc(NUM_ITER, sizeof(int));
+    self->completion_lag = (int*)calloc(NUM_ITER, sizeof(int));
+    self->execution_time = (int*)calloc(NUM_ITER, sizeof(int));
+  =}
+
+  @wcet("2 usec")
+  reaction(in) {=
+      EXEC_BEGIN();
+      #ifndef NDEBUG
+      lf_print("Got motor control input %i %i %i", in->value.x, in->value.y, in->value.z);
+      #endif
+      PRINT_LAG(Motor);
+
+      motor_reaction(&in->value);
+
+      EXEC_END();
+    =} deadline(lfDeadline) {=
+        lf_print_error_and_exit("deadline missd in Motor lag=" PRINTF_TIME, LAG());
+    =}
+
+  @wcet("1 msec")
+  reaction(dummyIn) {=
+    EXEC_REPORT(Motor);
+  =}
+}
+
+reactor UserInput {
+  output desired_angle: IntVec3
+
+  @wcet("1 usec")
+  reaction(startup) -> desired_angle {=
+    user_input_startup(&desired_angle->value);
+    lf_set_present(desired_angle);
+  =}
+}
+
+reactor SensorFusion {
+  input gyro1: IntVec3
+  input gyro2: IntVec3
+  output angle: IntVec3
+  output angular_speed: IntVec3
+
+  input dummyIn1: bool
+  input dummyIn2: bool
+  output dummyOut: bool
+
+  state _state: SensorFusionState
+  state last_gyro: IntVec3
+  state delta_t: int
+
+  state completion_lag: int*
+  state start_lag: int*
+  state execution_time: int*
+  state num_iter: int = 0
+
+  @wcet("1 msec")
+  reaction(startup) {=
+    self->_state.delta_t = (unsigned int )(0.001 * FIXED_POINT_SCALE);
+    #ifndef NDEBUG
+    lf_print("SensorFusion delta_t=%i", self->_state.delta_t);
+    #endif
+    self->completion_lag = (int*)calloc(NUM_ITER, sizeof(int));
+    self->start_lag = (int*)calloc(NUM_ITER, sizeof(int));
+    self->execution_time = (int*)calloc(NUM_ITER, sizeof(int));
+  =}
+
+  @wcet("62 usec")
+  reaction(gyro1, gyro2) -> angle, angular_speed {=
+    PRINT_LAG(SensorFusion);
+    EXEC_BEGIN();
+    #ifndef NDEBUG
+    lf_print("Got gyro1=[%i %i %i] gyro2=[%i %i %i]", gyro1->value.x, gyro1->value.y, gyro1->value.z, gyro2->value.x, gyro2->value.y, gyro2->value.z);
+    #endif
+    sensor_fusion_reaction(&self->_state, &gyro1->value, &gyro2->value, &angle->value, &angular_speed->value);
+    lf_set_present(angle);
+    lf_set_present(angular_speed);
+    EXEC_END();
+  =}
+
+  @wcet("1 msec")
+    reaction(dummyIn1, dummyIn2) -> dummyOut {=
+    EXEC_REPORT(SensorFusion);
+    lf_set(dummyOut, true); 
+  =}
+}
+
+reactor Gyroscope(id: int = 0, period: time = 1 ms, lfDeadline: time = 1 usec) {
+  timer t(10 msec, period)
+  output out: IntVec3
+  output dummyOut: bool
+
+  state completion_lag: int*
+  state execution_time: int*
+  state start_lag: int*
+  state num_iter: int = 0
+
+  @wcet("1 msec")
+  reaction(startup) {=
+    self->start_lag = (int*)calloc(NUM_ITER, sizeof(int));
+    self->completion_lag = (int*)calloc(NUM_ITER, sizeof(int));
+    self->execution_time = (int*)calloc(NUM_ITER, sizeof(int));
+  =}
+
+  @wcet("21 usec")
+  reaction(t) -> out {=
+    PRINT_LAG(Gyro);
+    EXEC_BEGIN();
+    gyro_reaction(&out->value);
+    EXEC_END();
+    lf_set_present(out);
+  =} deadline(lfDeadline) {=
+    lf_print_error_and_exit("deadline missed in Gyro, lag=%d", LAG());
+  =}
+
+  @wcet("1 msec")
+  reaction(shutdown) -> dummyOut {=
+    lf_sleep(MSEC(self->id * 100));
+    EXEC_REPORT(Gyroscope);
+    lf_set(dummyOut, true); 
+  =}
+}
+
+main reactor {
+  controller = new Controller()
+  userInput = new UserInput()
+  gyro1 = new Gyroscope(period = 1 ms, lfDeadline = 20 usec)
+  gyro2 = new Gyroscope(id=1, period = 1 ms, lfDeadline = 20 usec)
+  motor = new Motor(lfDeadline = 300 usec)
+  sensorFusion = new SensorFusion()
+  gyro1.out, gyro2.out -> sensorFusion.gyro1, sensorFusion.gyro2
+  gyro1.dummyOut, gyro2.dummyOut -> sensorFusion.dummyIn1, sensorFusion.dummyIn2
+  sensorFusion.angle -> controller.current_angle
+  sensorFusion.angular_speed -> controller.current_angular_speed
+  sensorFusion.dummyOut -> controller.dummyIn
+  userInput.desired_angle -> controller.desired_angle
+  controller.control_signal -> motor.in
+  controller.dummyOut -> motor.dummyIn
+}
