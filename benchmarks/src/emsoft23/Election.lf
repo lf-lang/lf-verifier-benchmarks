@@ -1,7 +1,7 @@
 target C
 
 reactor Node0 {
-    input in:int
+    input inp:int
     output out:int
 
     logical action a(10 msec):int
@@ -16,17 +16,17 @@ reactor Node0 {
     reaction(a) -> out {=
         lf_set(out, a->value);
     =}
-    reaction(in) -> a {=
-        if (in->value > self->id) {
-            lf_schedule_int(a, 0, in->value);
-        } else if (in->value == self->id) {
+    reaction(inp) -> a {=
+        if (inp->value > self->id) {
+            lf_schedule_int(a, 0, inp->value);
+        } else if (inp->value == self->id) {
             self->elected = 1;
         }
     =}
 }
 
 reactor Node1 {
-    input in:int
+    input inp:int
     output out:int
 
     logical action a(10 msec):int
@@ -41,17 +41,17 @@ reactor Node1 {
     reaction(a) -> out {=
         lf_set(out, a->value);
     =}
-    reaction(in) -> a {=
-        if (in->value > self->id) {
-            lf_schedule_int(a, 0, in->value);
-        } else if (in->value == self->id) {
+    reaction(inp) -> a {=
+        if (inp->value > self->id) {
+            lf_schedule_int(a, 0, inp->value);
+        } else if (inp->value == self->id) {
             self->elected = 1;
         }
     =}
 }
 
 reactor Node2 {
-    input in:int
+    input inp:int
     output out:int
 
     logical action a(10 msec):int
@@ -66,10 +66,10 @@ reactor Node2 {
     reaction(a) -> out {=
         lf_set(out, a->value);
     =}
-    reaction(in) -> a {=
-        if (in->value > self->id) {
-            lf_schedule_int(a, 0, in->value);
-        } else if (in->value == self->id) {
+    reaction(inp) -> a {=
+        if (inp->value > self->id) {
+            lf_schedule_int(a, 0, inp->value);
+        } else if (inp->value == self->id) {
             self->elected = 1;
         }
     =}
@@ -80,7 +80,7 @@ main reactor {
     i0 = new Node0()
     i1 = new Node1()
     i2 = new Node2()
-    i0.out -> i1.in
-    i1.out -> i2.in
-    i2.out -> i0.in
+    i0.out -> i1.inp
+    i1.out -> i2.inp
+    i2.out -> i0.inp
 }

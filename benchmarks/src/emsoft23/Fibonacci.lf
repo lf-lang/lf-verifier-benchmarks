@@ -33,10 +33,10 @@ reactor Fib {
     =}
 }
 reactor Printer {
-    input in:int
+    input inp:int
     state result:int
-    reaction(in) {=
-        self->result = in->value;
+    reaction(inp) {=
+        self->result = inp->value;
         printf("%d\n", self->result);
     =}
 }
@@ -45,5 +45,5 @@ reactor Printer {
 main reactor {
     fib = new Fib()
     printer = new Printer()
-    fib.out -> printer.in
+    fib.out -> printer.inp
 }

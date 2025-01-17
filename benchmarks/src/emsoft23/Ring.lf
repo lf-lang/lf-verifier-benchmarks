@@ -4,7 +4,7 @@
 target C
 
 reactor Source {
-    input in:int
+    input inp:int
     output out:int
     logical action start(1 nsec)
     state received:int
@@ -16,18 +16,18 @@ reactor Source {
         lf_set(out, self->received);
     =}
     /* Uncomment the following to debug feedback loops. */
-    // reaction(in) -> start {=
-    reaction(in) {=
-        self->received = in->value;
+    // reaction(inp) -> start {=
+    reaction(inp) {=
+        self->received = inp->value;
         // lf_schedule(start, 0);
     =}
 }
 
 reactor Node {
-    input in:int
+    input inp:int
     output out:int
-    reaction(in) -> out {=
-        lf_set(out, in->value + 1);
+    reaction(inp) -> out {=
+        lf_set(out, inp->value + 1);
     =}
 }
 
@@ -39,10 +39,10 @@ main reactor {
     n3 = new Node()
     n4 = new Node()
     n5 = new Node()
-    s.out -> n1.in after 1 nsec
-    n1.out -> n2.in after 1 nsec
-    n2.out -> n3.in after 1 nsec
-    n3.out -> n4.in after 1 nsec
-    n4.out -> n5.in after 1 nsec
-    n5.out -> s.in after 1 nsec
+    s.out -> n1.inp after 1 nsec
+    n1.out -> n2.inp after 1 nsec
+    n2.out -> n3.inp after 1 nsec
+    n3.out -> n4.inp after 1 nsec
+    n4.out -> n5.inp after 1 nsec
+    n5.out -> s.inp after 1 nsec
 }

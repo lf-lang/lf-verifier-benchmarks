@@ -17,7 +17,7 @@ reactor Source {
 
 reactor Node {
     
-    input  in:int
+    input  inp:int
     output out:int
     
     state  count:int
@@ -25,8 +25,8 @@ reactor Node {
 
     logical action send_output
 
-    reaction(in) -> send_output {=
-        self->payload = in->value;
+    reaction(inp) -> send_output {=
+        self->payload = inp->value;
         self->count += 1;
         lf_schedule(send_output, 0);
     =}
@@ -38,10 +38,10 @@ reactor Node {
 }
 
 reactor Sink {
-    input in:int
+    input inp:int
     state received:int
-    reaction(in) {=
-        self->received = in->value;
+    reaction(inp) {=
+        self->received = inp->value;
     =}
 }
 
@@ -56,10 +56,10 @@ main reactor {
     node5 = new Node()
     sink = new Sink()
 
-    source.out -> node1.in
-    node1.out -> node2.in
-    node2.out -> node3.in
-    node3.out -> node4.in
-    node4.out -> node5.in
-    node5.out -> sink.in
+    source.out -> node1.inp
+    node1.out -> node2.inp
+    node2.out -> node3.inp
+    node3.out -> node4.inp
+    node4.out -> node5.inp
+    node5.out -> sink.inp
 }
