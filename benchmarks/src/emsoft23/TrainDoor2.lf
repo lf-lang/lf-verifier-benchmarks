@@ -38,7 +38,7 @@ reactor Sink {
     =}
 }
 
-@property(name="train_does_not_move_until_door_closes", tactic="bmc", spec="(!TrainDoor.t.reaction_0)U[0, 1 sec](TrainDoor.d.reaction_0)", expect=false)
+@property(name="train_does_not_move_until_door_closes", tactic="bmc", spec="(!TrainDoor.t.reaction_1)U[0, 1 sec](TrainDoor.d.reaction_1)", expect=false)
 main reactor {
     c = new Controller()
     t = new Train()

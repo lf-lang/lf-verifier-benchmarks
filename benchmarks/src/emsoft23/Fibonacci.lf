@@ -41,7 +41,7 @@ reactor Printer {
     =}
 }
 
-@property(name="correctness", tactic="bmc", spec="G[10 nsec](Fibonacci.printer.reaction_0 ==> Fibonacci.printer.result == 89)", expect=true)
+@property(name="correctness", tactic="bmc", spec="G[10 nsec](Fibonacci.printer.reaction_1 ==> Fibonacci.printer.result == 89)", expect=true)
 main reactor {
     fib = new Fib()
     printer = new Printer()

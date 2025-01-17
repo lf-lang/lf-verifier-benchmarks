@@ -65,7 +65,7 @@ reactor Dashboard {
         self->received = 1; =}
 }
 
-@property(name="responsive", tactic="bmc", spec="G[0, 10 ms]((ADASModel.l.reaction_0 && (F[0](ADASModel.p.requestStop == 1))) ==> (F[0, 55 ms]( ADASModel.b.brakesApplied == 1 )))", expect=true)
+@property(name="responsive", tactic="bmc", spec="G[0, 10 ms]((ADASModel.l.reaction_1 && (F[0](ADASModel.p.requestStop == 1))) ==> (F[0, 55 ms]( ADASModel.b.brakesApplied == 1 )))", expect=true)
 main reactor ADASModel {
     c = new Camera();
     l = new LiDAR();

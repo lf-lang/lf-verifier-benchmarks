@@ -52,7 +52,7 @@ reactor Server {
     =}
 }
 
-@property(name="success", tactic="bmc", spec="(F[0, 1 sec](SafeSend.c.reaction_1))", expect=true)
+@property(name="success", tactic="bmc", spec="(F[0, 1 sec](SafeSend.c.reaction_2))", expect=true)
 main reactor {
     c = new Client();
     s = new Server();

@@ -29,7 +29,7 @@ reactor Controller {
     =}
 }
 
-@property(name="machine_stops_within_1_sec", tactic="bmc", spec="G[0, 1 sec]((Alarm.c.reaction_0) ==> F(0, 1 sec](Alarm.c.reaction_1)))", expect=true)
+@property(name="machine_stops_within_1_sec", tactic="bmc", spec="G[0, 1 sec]((Alarm.c.reaction_1) ==> F(0, 1 sec](Alarm.c.reaction_2)))", expect=true)
 main reactor {
    c =  new Controller();
 }

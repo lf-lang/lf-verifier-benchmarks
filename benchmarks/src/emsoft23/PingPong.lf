@@ -57,7 +57,7 @@ reactor Pong {
     =}
 }
 
-@property(name="no_two_consecutive_pings", tactic="bmc", spec="G[0, 4 nsec](PingPong.ping.reaction_1 ==> X(!PingPong.ping.reaction_1))", expect=false)
+@property(name="no_two_consecutive_pings", tactic="bmc", spec="G[0, 4 nsec](PingPong.ping.reaction_2 ==> X(!PingPong.ping.reaction_2))", expect=false)
 main reactor PingPong {
     ping = new Ping()
     pong = new Pong()

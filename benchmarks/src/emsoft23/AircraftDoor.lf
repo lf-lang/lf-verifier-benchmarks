@@ -33,7 +33,7 @@ reactor Door {
     =}
 }
 
-@property(name="vision_works", tactic="bmc", spec="((AircraftDoor.vision.ramp == 0) ==> (G[0 sec](AircraftDoor.door.reaction_0 ==> (AircraftDoor.door.doorOpen == 1))))", expect=true)
+@property(name="vision_works", tactic="bmc", spec="((AircraftDoor.vision.ramp == 0) ==> (G[0 sec](AircraftDoor.door.reaction_1 ==> (AircraftDoor.door.doorOpen == 1))))", expect=true)
 main reactor AircraftDoor {
     controller	= new Controller();
     vision		= new Vision();
