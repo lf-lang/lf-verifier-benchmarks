@@ -27,10 +27,10 @@ reactor _Factorial {
 }
 
 reactor Printer {
-    input in:int
+    input inp:int
     state result:int
-    reaction(in) {=
-        self->result = in->value;
+    reaction(inp) {=
+        self->result = inp->value;
         printf("%d\n", self->result);
     =}
 }
@@ -39,5 +39,5 @@ reactor Printer {
 main reactor {
     factorial = new _Factorial()
     printer = new Printer()
-    factorial.out -> printer.in
+    factorial.out -> printer.inp
 }
