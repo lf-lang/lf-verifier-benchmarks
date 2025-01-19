@@ -1,16 +1,14 @@
 target C
 
-reactor Node0 {
-    input inp:int
-    output out:int
+reactor Node(id: int = 0) {
+    input inp: int
+    output out: int
 
     logical action a(10 msec):int
 
-    state id:int
-    state elected:int
+    state elected:int = 0
 
     reaction(startup) -> out {=
-        self->id = 0;
         lf_set(out, self->id);
     =}
     reaction(a) -> out {=
@@ -25,61 +23,16 @@ reactor Node0 {
     =}
 }
 
-reactor Node1 {
-    input inp:int
-    output out:int
 
-    logical action a(10 msec):int
-
-    state id:int
-    state elected:int
-
-    reaction(startup) -> out {=
-        self->id = 1;
-        lf_set(out, self->id);
-    =}
-    reaction(a) -> out {=
-        lf_set(out, a->value);
-    =}
-    reaction(inp) -> a {=
-        if (inp->value > self->id) {
-            lf_schedule_int(a, 0, inp->value);
-        } else if (inp->value == self->id) {
-            self->elected = 1;
-        }
-    =}
-}
-
-reactor Node2 {
-    input inp:int
-    output out:int
-
-    logical action a(10 msec):int
-
-    state id:int
-    state elected:int
-
-    reaction(startup) -> out {=
-        self->id = 2;
-        lf_set(out, self->id);
-    =}
-    reaction(a) -> out {=
-        lf_set(out, a->value);
-    =}
-    reaction(inp) -> a {=
-        if (inp->value > self->id) {
-            lf_schedule_int(a, 0, inp->value);
-        } else if (inp->value == self->id) {
-            self->elected = 1;
-        }
-    =}
-}
-
-@property(name="exactly_one_elected", tactic="bmc", spec="F[0, 20 msec]((Election.i0.elected + Election.i1.elected + Election.i2.elected) == 1)", expect=true)
+@property(
+    name="exactly_one_elected", 
+    tactic="bmc", 
+    spec="F[0, 20 msec]((Election.i0.elected + Election.i1.elected + Election.i2.elected) == 1)", 
+    expect=true)
 main reactor {
-    i0 = new Node0()
-    i1 = new Node1()
-    i2 = new Node2()
+    i0 = new Node(id=0)
+    i1 = new Node(id=1)
+    i2 = new Node(id=2)
     i0.out -> i1.inp
     i1.out -> i2.inp
     i2.out -> i0.inp
