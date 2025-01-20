@@ -11,7 +11,7 @@ reactor Controller {
 
 reactor Train {
     input inp:int
-    state received:int
+    state received:int = 0
     reaction(inp) {=
         self->received = inp->value;
     =}
@@ -19,7 +19,7 @@ reactor Train {
 
 reactor Door {
     input inp:int
-    state received:int
+    state received:int = 0
     reaction(inp) {=
         self->received = inp->value;
     =}

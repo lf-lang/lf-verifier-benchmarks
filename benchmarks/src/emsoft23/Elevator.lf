@@ -104,10 +104,10 @@ reactor Control {
     output MotorDown:int
     output DoorCommand:int
 
-    state Floor:int
-    state DoorIsOpen:int
-    state StopPressed:int
-    state direction:int // 1 = UP, -1 = DOWN, 0 = NOT MOVING
+    state Floor:int = 0
+    state DoorIsOpen:int = 0
+    state StopPressed:int = 0
+    state direction:int = 0 // 1 = UP, -1 = DOWN, 0 = NOT MOVING
 
     // Call from floor 1
     reaction(Call1) -> MotorDown, DoorCommand {=

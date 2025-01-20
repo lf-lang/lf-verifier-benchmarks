@@ -20,8 +20,8 @@ reactor Node {
     input  inp:int
     output out:int
     
-    state  count:int
-    state  payload:int
+    state  count:int = 0
+    state  payload:int = 0
 
     logical action send_output
 
