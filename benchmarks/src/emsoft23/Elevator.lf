@@ -239,7 +239,7 @@ reactor Simulator {
     =}
 }
 
-@property(name="moves_when_safe", tactic="bmc", spec="!(G[0, 15 sec]((Elevator.s.reaction_4 && (Elevator.s.direction != 0)) ==> (Elevator.s.doorStatus == 0 && Elevator.c.StopPressed == 0)))", CT=15, expect=true)
+@property(name="moves_when_safe", tactic="bmc", spec="G[0, 15 sec]((Elevator.s.reaction_4 && (Elevator.s.direction != 0)) ==> (Elevator.s.doorStatus == 0 && Elevator.c.StopPressed == 0))", CT=15, expect=true)
 main reactor {
     c = new Control()
     s = new Simulator()    
