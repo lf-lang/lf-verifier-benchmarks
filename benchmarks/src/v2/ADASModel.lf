@@ -1,0 +1,88 @@
+target C;
+
+@lang("c")
+reactor Camera {
+    output out  :int
+    state  frame:int
+    timer  t(0, 17 msec); // 60 fps
+    reaction(t) -> out {=
+        // Capture a frame.
+        self->frame = 1;
+        lf_set(out, self->frame);
+    =}
+}
+
+@lang("c")
+reactor LiDAR {
+    output out  :int
+    state  frame:int
+    timer  t(0, 34 msec); // 30 fps
+    reaction(t) -> out {=
+        // Capture a frame.
+        self->frame = 2;
+        lf_set(out, self->frame);
+    =}
+}
+
+@lang("rust")
+reactor Pedal {
+    output out:i32
+    physical action a
+    reaction(a) -> out {=
+        ctx.set(out, 1); =}
+}
+
+@lang("rust")
+reactor Brakes {
+    input inADAS:i32
+    input inPedal:i32
+    state brakesApplied:i32 = 0
+    reaction(inADAS, inPedal) {=
+        // Actuate brakes.
+        self.brakesApplied = 1;
+    =} deadline(10 msec) {= =}
+}
+
+@lang("c")
+reactor ADASProcessor {
+    input in1:int
+    input in2:int
+    output out1:int
+    output out2:int
+    logical action a(50 msec)
+    state requestStop:int
+    reaction(in1,in2) -> a {=
+        // ... Detect danger
+		// and request stop.
+        lf_schedule(a, 0);
+        self->requestStop = 1;
+    =}
+    reaction(a) -> out1, out2 {=
+        if (self->requestStop == 1)
+            lf_set(out1, 1);
+    =} deadline(20 msec) {= =}
+}
+
+@lang("rust")
+reactor Dashboard {
+    input _in:i32
+    state received:i32
+    reaction(_in) {=
+        self.received = 1; =}
+}
+
+@property(name="responsive", tactic="bmc", spec="G[0, 10 ms]((ADASModel.l.reaction_1 && (F[0](ADASModel.p.requestStop == 1))) ==> (F[0, 55 ms]( ADASModel.b.brakesApplied == 1 )))", expect=true)
+@lang("c")
+main reactor ADASModel {
+    c = new Camera();
+    l = new LiDAR();
+    p = new ADASProcessor();
+    b = new Brakes();
+    d = new Dashboard();
+    // p = new Pedal();
+    l.out -> p.in1; 
+    c.out -> p.in2;
+    p.out2 -> d._in;
+    p.out1 -> b.inADAS after 5 msec;
+    // p.out -> b.inPedal;
+}

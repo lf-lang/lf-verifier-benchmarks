@@ -1,0 +1,64 @@
+target C
+
+@lang("c")
+reactor CNode(id: int = 0) {
+    input inp: int
+    output out: int
+
+    logical action a(10 msec):int
+
+    state elected:int = 0
+
+    reaction(startup) -> out {=
+        lf_set(out, self->id);
+    =}
+    reaction(a) -> out {=
+        lf_set(out, a->value);
+    =}
+    reaction(inp) -> a {=
+        if (inp->value > self->id) {
+            lf_schedule_int(a, 0, inp->value);
+        } else if (inp->value == self->id) {
+            self->elected = 1;
+        }
+    =}
+}
+
+@lang("rust")
+reactor RustNode(id: i32 = 0) {
+    input inp: i32
+    output out: i32
+
+    logical action a(10 msec):i32
+
+    state elected:i32 = 0
+
+    reaction(startup) -> out {=
+        ctx.set(out, self.id);
+    =}
+    reaction(a) -> out {=
+        ctx.set(out, ctx.get(a));
+    =}
+    reaction(inp) -> a {=
+        if (ctx.get(inp) > self.id) {
+            ctx.schedule_int(a, 0, ctx.get(inp));
+        } else if (ctx.get(inp) == self.id) {
+            self.elected = 1;
+        }
+    =}
+}
+
+@property(
+    name="exactly_one_elected", 
+    tactic="bmc", 
+    spec="F[0, 20 msec]((Election.i0.elected + Election.i1.elected + Election.i2.elected) == 1)", 
+    expect=true)
+@lang("c")
+main reactor {
+    i0 = new CNode(id=0)
+    i1 = new RustNode(id=1)
+    i2 = new CNode(id=2)
+    i0.out -> i1.inp
+    i1.out -> i2.inp
+    i2.out -> i0.inp
+}
