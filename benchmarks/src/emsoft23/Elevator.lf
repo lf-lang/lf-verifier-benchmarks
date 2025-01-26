@@ -93,6 +93,7 @@ target C
 // queue the requests. So when a request
 // is raised during the execution of another
 // request, simply ignore the other request.
+@lang("c")
 reactor Control {
     input Call1:int
     input Call2:int
@@ -166,6 +167,7 @@ reactor Control {
 }
 
 // Model the physical world
+@lang("c")
 reactor Simulator {
     output Call1:int
     output Call2:int
@@ -240,6 +242,7 @@ reactor Simulator {
 }
 
 @property(name="moves_when_safe", tactic="bmc", spec="G[0, 15 sec]((Elevator.s.reaction_4 && (Elevator.s.direction != 0)) ==> (Elevator.s.doorStatus == 0 && Elevator.c.StopPressed == 0))", CT=15, expect=true)
+@lang("c")
 main reactor {
     c = new Control()
     s = new Simulator()    

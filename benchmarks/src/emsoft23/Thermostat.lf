@@ -4,6 +4,7 @@
  */
 target C
 
+@lang("c")
 reactor Environment {
     input heatOn:int
     output temperature:int
@@ -28,6 +29,7 @@ reactor Environment {
     =}
 }
 
+@lang("c")
 reactor _Thermostat {
     input temperature:int
     output heatOn:int // 0 = OFF, 1 = ON
@@ -62,6 +64,7 @@ reactor _Thermostat {
 }
 
 @property(name="correctness", tactic="bmc", spec="G[0, 20 sec](((Thermostat.t._temperature <= 18) ==> F[0](Thermostat.t._mode == 1))  &&  ((Thermostat.t._temperature >= 22) ==> F[0](Thermostat.t._mode == 0)))", expect=true)
+@lang("c")
 main reactor {
     e = new Environment()
     t = new _Thermostat()

@@ -1,5 +1,6 @@
 target C
 
+@lang("c")
 reactor Trigger {
     output out:int
     timer t(0,1 usec)
@@ -9,6 +10,7 @@ reactor Trigger {
     =}
 }
 
+@lang("c")
 reactor Task {
     input cnt:int
     state counter:int = 0
@@ -19,6 +21,7 @@ reactor Task {
 }
 
 @property(name="upperbound", tactic="bmc", spec="G[0, 1 usec]((CoopSchedule.task1.counter + CoopSchedule.task2.counter + CoopSchedule.task3.counter + CoopSchedule.task4.counter + CoopSchedule.task5.counter) < 15)", expect=false)
+@lang("c")
 main reactor {
     trigger = new Trigger()
     // TODO: Put these reactors in a bank.

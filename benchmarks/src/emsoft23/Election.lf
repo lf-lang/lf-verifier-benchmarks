@@ -1,5 +1,6 @@
 target C
 
+@lang("c")
 reactor Node(id: int = 0) {
     input inp: int
     output out: int
@@ -29,6 +30,7 @@ reactor Node(id: int = 0) {
     tactic="bmc", 
     spec="F[0, 20 msec]((Election.i0.elected + Election.i1.elected + Election.i2.elected) == 1)", 
     expect=true)
+@lang("c")
 main reactor {
     i0 = new Node(id=0)
     i1 = new Node(id=1)

@@ -1,6 +1,7 @@
 target C {
     timeout: 10 nsec
 }
+@lang("c")
 reactor Fib {
     output out:int
     timer t(0, 1 nsec)
@@ -32,6 +33,7 @@ reactor Fib {
         self->lastResult = self->result;
     =}
 }
+@lang("c")
 reactor Printer {
     input inp:int
     state result:int
@@ -42,6 +44,7 @@ reactor Printer {
 }
 
 @property(name="correctness", tactic="bmc", spec="G[10 nsec](Fibonacci.printer.reaction_1 ==> Fibonacci.printer.result == 89)", expect=true)
+@lang("c")
 main reactor {
     fib = new Fib()
     printer = new Printer()

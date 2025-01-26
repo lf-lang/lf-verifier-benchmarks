@@ -1,5 +1,6 @@
 target C;
 
+@lang("c")
 reactor Controller {
     output out1:int
     output out2:int
@@ -9,6 +10,7 @@ reactor Controller {
     =}
 }
 
+@lang("c")
 reactor Train {
     input inp:int
     state received:int = 0
@@ -17,6 +19,7 @@ reactor Train {
     =}
 }
 
+@lang("c")
 reactor Door {
     input inp:int
     state received:int = 0
@@ -26,6 +29,7 @@ reactor Door {
 }
 
 @property(name="train_does_not_move_until_door_closes", tactic="bmc", spec="(!TrainDoor.t.reaction_1)U[0, 1 sec](TrainDoor.d.reaction_1)", expect=false)
+@lang("c")
 main reactor {
     c = new Controller();
     t = new Train();

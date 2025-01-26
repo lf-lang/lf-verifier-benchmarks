@@ -1,5 +1,6 @@
 target C;
 
+@lang("c")
 reactor Camera {
     output out  :int
     state  frame:int
@@ -11,6 +12,7 @@ reactor Camera {
     =}
 }
 
+@lang("c")
 reactor LiDAR {
     output out  :int
     state  frame:int
@@ -22,6 +24,7 @@ reactor LiDAR {
     =}
 }
 
+@lang("c")
 reactor Pedal {
     output out:int
     physical action a
@@ -29,6 +32,7 @@ reactor Pedal {
         lf_set(out, 1); =}
 }
 
+@lang("c")
 reactor Brakes {
     input inADAS:int
     input inPedal:int
@@ -39,6 +43,7 @@ reactor Brakes {
     =} deadline(10 msec) {= =}
 }
 
+@lang("c")
 reactor ADASProcessor {
     input in1:int
     input in2:int
@@ -58,6 +63,7 @@ reactor ADASProcessor {
     =} deadline(20 msec) {= =}
 }
 
+@lang("c")
 reactor Dashboard {
     input _in:int
     state received:int
@@ -66,6 +72,7 @@ reactor Dashboard {
 }
 
 @property(name="responsive", tactic="bmc", spec="G[0, 10 ms]((ADASModel.l.reaction_1 && (F[0](ADASModel.p.requestStop == 1))) ==> (F[0, 55 ms]( ADASModel.b.brakesApplied == 1 )))", expect=true)
+@lang("c")
 main reactor ADASModel {
     c = new Camera();
     l = new LiDAR();

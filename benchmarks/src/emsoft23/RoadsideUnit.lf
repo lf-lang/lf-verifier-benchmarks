@@ -1,5 +1,6 @@
 target C
 
+@lang("c")
 reactor Vehicle {
 	
 	input g:int
@@ -33,6 +34,7 @@ reactor Vehicle {
     =}
 }
 
+@lang("c")
 reactor RSU {
     
     input request_1:int
@@ -88,6 +90,7 @@ reactor RSU {
 }
 
 @property(name="mutual_exclusion", tactic="bmc", spec="G[0, 10 sec](!(RoadsideUnit.v1.grant == 1 && RoadsideUnit.v2.grant == 1))", expect=true)
+@lang("c")
 main reactor {
     
     v1 = new Vehicle()
