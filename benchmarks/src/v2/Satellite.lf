@@ -1,5 +1,209 @@
-#include "synthetic_data.h"
-int synthetic_gyro[NUM_GYRO_SAMPLES][3] = {{0, 0, 0},
+/**
+ * A PID controller controling the attitude of a satellite
+ * 
+ * @author Tassilo Tanneberger
+ * @author Erling Jellum
+ * @author Shaokai Lin
+ */
+target C {
+  build-type: Debug,
+  platform: FlexPRET,
+  workers: 2,
+  timeout: 1100001 usec,
+}
+
+preamble {=
+    #include <string.h>
+
+    typedef struct {
+      int x;
+      int y;
+      int z;
+    } IntVec3;
+
+    typedef struct {
+      IntVec3 last_angle;
+      unsigned int delta_t;
+    } SensorFusionState;
+
+    typedef struct {
+      IntVec3 last_error;
+      IntVec3 error_accumulated;
+      IntVec3 desired_angle;
+      int Kp;
+      int Ki;
+      int Kd;
+    } ControllerState;
+
+    // Integer multiplication using bitwise operations. Needed because platin can
+    // not handle the libc implementations.
+    static unsigned int multiply(unsigned int a, unsigned int b) {
+      int result = 0;
+
+      // #pragma loopbound min 1 max 32
+      while (b > 0) {
+        if (b & 1) {
+          result += a;
+        }
+        a <<= 1;
+        b >>= 1;
+      }
+
+      return result;
+    }
+
+    // Fixed point confuguration
+    #define FIXED_POINT_FRACTION_BITS 12
+    #define FIXED_POINT_SCALE (1 << FIXED_POINT_FRACTION_BITS)
+=}
+
+reactor Controller(Kp_float: float = 0.3, Ki_float: float = 0.1, Kd_float: float = 0.0) {
+  input current_angle: IntVec3
+  input current_angular_speed: IntVec3
+  input desired_angle: IntVec3
+  output control_signal: IntVec3
+
+  state _state: ControllerState
+  state num_iter: int = 0
+
+  reaction(startup) {=
+    self->_state.Kp = self->Kp_float * FIXED_POINT_SCALE;
+    self->_state.Ki = self->Ki_float * FIXED_POINT_SCALE;
+    self->_state.Kd = self->Kd_float * FIXED_POINT_SCALE;
+    #ifndef NDEBUG
+    lf_print("Controller gains: Kp=%i Ki=%i Kd=%i", self->_state.Kp, self->_state.Ki, self->_state.Kd);
+    #endif
+  =}
+
+  reaction(desired_angle) {=
+    self->_state.desired_angle.x = desired_angle->value.x;
+    self->_state.desired_angle.y = desired_angle->value.y;
+    self->_state.desired_angle.z = desired_angle->value.z;
+    #ifndef NDEBUG
+    lf_print("Desired angle set to %i %i %i", self->_state.desired_angle.x, self->_state.desired_angle.y, self->_state.desired_angle.z);
+    #endif
+  =}
+
+  reaction(current_angle, current_angular_speed) -> control_signal {=
+    #ifndef NDEBUG
+      lf_print("Got current_angle=%i %i %i", current_angle->value.x, current_angle->value.y, current_angle->value.z);
+    #endif
+    
+    (void)current_angular_speed;
+    IntVec3 error;
+
+    error.x = (current_angle->value.x - self->_state.desired_angle.x);
+    error.y = (current_angle->value.y - self->_state.desired_angle.y);
+    error.z = (current_angle->value.z - self->_state.desired_angle.z);
+
+    self->_state.error_accumulated.x += error.x;
+    self->_state.error_accumulated.y += error.y;
+    self->_state.error_accumulated.z += error.z;
+
+    control_signal->value.x = (multiply(self->_state.Kp, error.x) >> FIXED_POINT_FRACTION_BITS) +
+                  (multiply(self->_state.Kp, self->_state.error_accumulated.x) >>
+                    FIXED_POINT_FRACTION_BITS)  // integral component
+                  + (multiply(self->_state.Kd, (self->_state.last_error.x - error.x)) >>
+                      FIXED_POINT_FRACTION_BITS);  // differential component
+    control_signal->value.y = (multiply(self->_state.Kp, error.y) >> FIXED_POINT_FRACTION_BITS) +
+                  (multiply(self->_state.Ki, self->_state.error_accumulated.y) >>
+                    FIXED_POINT_FRACTION_BITS)  // integral component
+                  + (multiply(self->_state.Kd, (self->_state.last_error.y - error.y)) >>
+                      FIXED_POINT_FRACTION_BITS);  // differential component
+    control_signal->value.z = (multiply(self->_state.Kp, error.z) >> FIXED_POINT_FRACTION_BITS) +
+                  (multiply(self->_state.Ki, self->_state.error_accumulated.z) >>
+                    FIXED_POINT_FRACTION_BITS)  // integral component
+                  + (multiply(self->_state.Kd, (self->_state.last_error.z - error.z)) >>
+                      FIXED_POINT_FRACTION_BITS);
+
+    self->_state.last_error.x = error.x;
+    self->_state.last_error.y = error.y;
+    self->_state.last_error.z = error.z;
+    
+    lf_set_present(control_signal);
+  =}
+}
+
+reactor Motor {
+  input in: IntVec3
+
+  state num_iter: int = 0
+
+  reaction(in) {=
+      #ifndef NDEBUG
+      lf_print("Got motor control input %i %i %i", in->value.x, in->value.y, in->value.z);
+      #endif
+  =}
+}
+
+reactor UserInput {
+  output desired_angle: IntVec3
+
+  reaction(startup) -> desired_angle {=
+    desired_angle->value.x = 4096;
+    desired_angle->value.y = 2048;
+    desired_angle->value.z = 819;
+    lf_set_present(desired_angle);
+  =}
+}
+
+reactor SensorFusion {
+  input gyro1: IntVec3
+  input gyro2: IntVec3
+  output angle: IntVec3
+  output angular_speed: IntVec3
+
+  state _state: SensorFusionState
+  state last_gyro: IntVec3
+  state delta_t: int
+
+  state num_iter: int = 0
+
+  reaction(startup) {=
+    self->_state.delta_t = (unsigned int )(0.001 * FIXED_POINT_SCALE);
+    #ifndef NDEBUG
+    lf_print("SensorFusion delta_t=%i", self->_state.delta_t);
+    #endif
+  =}
+
+  reaction(gyro1, gyro2) -> angle, angular_speed {=
+    #ifndef NDEBUG
+    lf_print("Got gyro1=[%i %i %i] gyro2=[%i %i %i]", gyro1->value.x, gyro1->value.y, gyro1->value.z, gyro2->value.x, gyro2->value.y, gyro2->value.z);
+    #endif
+    
+    IntVec3 gyro_avg = {(gyro1->value.x + gyro2->value.x) >> 1, (gyro1->value.y + gyro2->value.y) >> 1,
+                      (gyro1->value.z + gyro2->value.z) >> 1};
+
+    angle->value.x = self->_state.last_angle.x +
+              (multiply(gyro_avg.x, self->_state.delta_t) >> FIXED_POINT_FRACTION_BITS);
+    angle->value.y = self->_state.last_angle.y +
+              (multiply(gyro_avg.y, self->_state.delta_t) >> FIXED_POINT_FRACTION_BITS);
+    angle->value.z = self->_state.last_angle.z +
+              (multiply(gyro_avg.z, self->_state.delta_t) >> FIXED_POINT_FRACTION_BITS);
+
+    angular_speed->value.x = gyro_avg.x;
+    angular_speed->value.y = gyro_avg.y;
+    angular_speed->value.z = gyro_avg.z;
+
+    self->_state.last_angle.x = angle->value.x;
+    self->_state.last_angle.y = angle->value.y;
+    self->_state.last_angle.z = angle->value.z;
+    
+    lf_set_present(angle);
+    lf_set_present(angular_speed);
+  =}
+}
+
+reactor Gyroscope(id: int = 0) {
+  timer t(10 msec, 1 msec)
+  output out: IntVec3
+
+  state num_iter: int = 0
+
+  preamble {=
+    #define NUM_GYRO_SAMPLES 289
+
+    static int synthetic_gyro[NUM_GYRO_SAMPLES][3] = {{0, 0, 0},
                                            {0, 0, 0},
                                            {0, 0, 0},
                                            {6060, 6059, 1615},
@@ -288,3 +492,36 @@ int synthetic_gyro[NUM_GYRO_SAMPLES][3] = {{0, 0, 0},
                                            {620, 316, 124},
                                            {411, 105, 67},
                                            {201, -105, 11}};
+  =}
+
+  reaction(t) -> out {=
+    static int i = 0;
+
+    int base_idx = multiply(i, 3);
+    int *sample = synthetic_gyro[base_idx];
+    out->value.x = *sample;
+    sample++;
+    out->value.y = *sample;
+    sample++;
+    out->value.z = *sample;
+    if (i++ == NUM_GYRO_SAMPLES) {
+      i = 0;
+    }
+    lf_set_present(out);
+  =}
+}
+
+// @property(name="test", tactic="bmc", spec="G[0, 1 msec](false)")
+main reactor {
+  controller = new Controller()
+  userInput = new UserInput()
+  gyro1 = new Gyroscope()
+  gyro2 = new Gyroscope(id=1)
+  motor = new Motor()
+  sensorFusion = new SensorFusion()
+  gyro1.out, gyro2.out -> sensorFusion.gyro1, sensorFusion.gyro2
+  sensorFusion.angle -> controller.current_angle
+  sensorFusion.angular_speed -> controller.current_angular_speed
+  userInput.desired_angle -> controller.desired_angle
+  controller.control_signal -> motor.in
+}
