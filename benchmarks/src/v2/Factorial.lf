@@ -1,0 +1,46 @@
+target C {
+    timeout: 10 nsec
+}
+
+@lang("rust")
+reactor _Factorial {
+    output out:i32
+    timer t(0, 1 nsec)
+    logical action prepForNext
+
+    state N:i32=0
+    state result:i32
+    state lastResult:i32
+
+    reaction(t) -> out, prepForNext {=
+        if (self.N < 2) {
+            self.result = 1;
+        } else {
+            self.result = self.N * self.lastResult;
+        }
+        ctx.set(out, self.result);
+        ctx.schedule(prepForNext, 0);
+    =}
+    reaction(prepForNext) {=
+        self.N += 1;
+        self.lastResult = self.result;
+    =}
+}
+
+@lang("c")
+reactor Printer {
+    input inp:int
+    state result:int
+    reaction(inp) {=
+        self->result = inp->value;
+        printf("%d\n", self->result);
+    =}
+}
+
+@property(name="correctness", tactic="bmc", spec="G[10 nsec](Factorial.printer.reaction_1 ==> Factorial.printer.result == 3628800)", expect=true)
+@lang("c")
+main reactor {
+    factorial = new _Factorial()
+    printer = new Printer()
+    factorial.out -> printer.inp
+}
