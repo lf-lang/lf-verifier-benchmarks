@@ -1,0 +1,69 @@
+/**
+ * Basic benchmark from the Savina benchmark suite that is intended to measure
+ * message-passing overhead. This is based on
+ * https://www.scala-lang.org/old/node/54 See
+ * https://shamsimam.github.io/papers/2014-agere-savina.pdf.
+ *
+ * Ping introduces a 1 nsec delay using a logical action to break the
+ * causality loop.
+ *
+ * To get a sense, some (informal) results for 1,000,000 ping-pongs on my Mac:
+ *
+ * - Unthreaded: 97 msec
+ * - Threaded: 265 msec
+ *
+ * There is no parallelism in this application, so it does not benefit from
+ * being being threaded, just some additional overhead.
+ *
+ * These measurements are total execution time, including startup and shutdown.
+ * These are about an order of magnitude faster than anything reported in the
+ * paper.
+ */
+target C {
+    fast: true
+}
+
+@lang("rust")
+reactor Ping {
+    input receive: i32
+    output send: i32
+    state pingsLeft: i32 = 10
+    logical action serve(1 nsec)
+
+    reaction(startup) -> serve {=
+        ctx.schedule(serve, 0);
+    =}
+
+    reaction(serve) -> send {=
+        ctx.set(send, self.pingsLeft);
+        self.pingsLeft -= 1;
+    =}
+
+    reaction(receive) -> serve {=
+        if (self.pingsLeft > 0) {
+            ctx.schedule(serve, 0);
+        }
+    =}
+}
+
+@lang("c")
+reactor Pong {
+    input receive: int
+    output send: int
+    state count: int = 0
+    state expected: int = 10
+
+    reaction(receive) -> send {=
+        self->count += 1;
+        lf_set(send, receive->value);
+    =}
+}
+
+@property(name="no_two_consecutive_pings", tactic="bmc", spec="G[0, 4 nsec](PingPong.ping.reaction_2 ==> X(!PingPong.ping.reaction_2))", expect=false)
+@lang("c")
+main reactor PingPong {
+    ping = new Ping()
+    pong = new Pong()
+    ping.send -> pong.receive
+    pong.send -> ping.receive
+}
