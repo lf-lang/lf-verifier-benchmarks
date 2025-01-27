@@ -1,0 +1,38 @@
+target C
+
+@lang("rust")
+reactor Trigger {
+    output out:i32
+    timer t(0,1 usec)
+
+    reaction(t) -> out {= 
+        ctx.set(out, 1);
+    =}
+}
+
+@lang("c")
+reactor Task {
+    input cnt:int
+    state counter:int = 0
+
+    reaction(cnt) {=
+        self->counter += 2; // Should be 1.
+    =}
+}
+
+@property(name="upperbound", tactic="bmc", spec="G[0, 1 usec]((CoopSchedule.task1.counter + CoopSchedule.task2.counter + CoopSchedule.task3.counter + CoopSchedule.task4.counter + CoopSchedule.task5.counter) < 15)", expect=false)
+@lang("c")
+main reactor {
+    trigger = new Trigger()
+    // TODO: Put these reactors in a bank.
+    task1 = new Task()
+    task2 = new Task()
+    task3 = new Task()
+    task4 = new Task()
+    task5 = new Task()
+    trigger.out -> task1.cnt
+    trigger.out -> task2.cnt
+    trigger.out -> task3.cnt
+    trigger.out -> task4.cnt
+    trigger.out -> task5.cnt
+}
