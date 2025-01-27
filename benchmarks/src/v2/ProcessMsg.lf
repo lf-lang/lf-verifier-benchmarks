@@ -1,0 +1,41 @@
+target C
+
+@lang("rust")
+reactor Task {
+    input inp:i32
+    output out:i32
+
+    state messageSent:i32
+    state counter:i32=0
+    state panic:i32=0
+
+    timer t(0, 1 nsec)
+
+    logical action updateMessage
+
+    reaction(startup) {=
+        self.messageSent = 0;
+    =}
+    reaction(t) -> out {=
+        ctx.set(out, self.messageSent);
+    =}
+    reaction(inp) -> updateMessage {=
+        /* Check for invalid message.  */
+        if (ctx.get(inp) != self.messageSent) {
+            self.panic = 1;
+        }
+        ctx.schedule(updateMessage, 0);
+        self.counter += 1;
+    =}
+    reaction(updateMessage) {=
+        /* Increment the last word of the 16-byte message.  */
+        self.messageSent += 1;
+    =}
+}
+
+@property(name="panic_free", tactic="bmc", spec="G[5 nsec](ProcessMsg.task.panic != 1)", expect=true)
+@lang("c")
+main reactor {
+    task = new Task()
+    task.out -> task.inp
+}

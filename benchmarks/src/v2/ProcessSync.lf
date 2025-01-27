@@ -1,0 +1,19 @@
+target C
+
+@lang("rust")
+reactor Task {
+    /* Define the counters used in the demo application...  */
+    state tm_synchronization_processing_counter:i32=0
+    timer t(0,1 nsec)
+
+    reaction(t) {=
+        /* Increment the counter.  */
+        self.tm_synchronization_processing_counter += 1;
+    =}
+}
+
+@property(name="correctness", tactic="bmc", spec="G[2 nsec](ProcessSync.task.tm_synchronization_processing_counter == 3)", expect=true)
+@lang("c")
+main reactor {
+    task = new Task()
+}
