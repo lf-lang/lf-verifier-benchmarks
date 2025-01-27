@@ -1,5 +1,6 @@
 target C;
 
+@lang("c")
 reactor Source {
     output out:int
     state value:int=0
@@ -15,6 +16,7 @@ reactor Source {
     =}
 }
 
+@lang("c")
 reactor Node {
     
     input  inp:int
@@ -37,6 +39,7 @@ reactor Node {
     =}
 }
 
+@lang("c")
 reactor Sink {
     input inp:int
     state received:int
@@ -46,6 +49,7 @@ reactor Sink {
 }
 
 @property(name="count_bounded", tactic="bmc", spec="G[0, 1 sec](!(Pipe.node1.count <= 1 && Pipe.node2.count <= 1 && Pipe.node3.count <= 1 && Pipe.node4.count <= 1 && Pipe.node5.count <= 1))", expect=false)
+@lang("c")
 main reactor {
     
     source = new Source()

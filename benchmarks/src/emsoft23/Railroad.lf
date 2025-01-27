@@ -1,5 +1,6 @@
 target C
 
+@lang("c")
 reactor Train {
     input signal:int // 0 = GREEN, 1 = RED
     output out:int   // 0 = ARRIVE, 1 = LEAVE
@@ -60,6 +61,7 @@ reactor Train {
     =}
 }
 
+@lang("c")
 reactor Controller {
     input out_w:int
     input out_e:int
@@ -115,6 +117,7 @@ reactor Controller {
 }
 
 @property(name="TrainSafety", tactic="bmc", spec="G[0, 5 sec](!(Railroad.train_w._mode == 2 && Railroad.train_e._mode == 2))", CT=20, expect=true)
+@lang("c")
 main reactor {
     train_w = new Train()
     train_e = new Train()

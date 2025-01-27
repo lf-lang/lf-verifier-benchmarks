@@ -24,22 +24,22 @@ reactor LiDAR {
     =}
 }
 
-@lang("c")
+@lang("rust")
 reactor Pedal {
-    output out:int
+    output out:i32
     physical action a
     reaction(a) -> out {=
-        lf_set(out, 1); =}
+        ctx.set(out, 1); =}
 }
 
-@lang("c")
+@lang("rust")
 reactor Brakes {
-    input inADAS:int
-    input inPedal:int
-    state brakesApplied:int = 0
+    input inADAS:i32
+    input inPedal:i32
+    state brakesApplied:i32 = 0
     reaction(inADAS, inPedal) {=
         // Actuate brakes.
-        self->brakesApplied = 1;
+        self.brakesApplied = 1;
     =} deadline(10 msec) {= =}
 }
 
@@ -63,12 +63,12 @@ reactor ADASProcessor {
     =} deadline(20 msec) {= =}
 }
 
-@lang("c")
+@lang("rust")
 reactor Dashboard {
-    input _in:int
-    state received:int
+    input _in:i32
+    state received:i32
     reaction(_in) {=
-        self->received = 1; =}
+        self.received = 1; =}
 }
 
 @property(name="responsive", tactic="bmc", spec="G[0, 10 ms]((ADASModel.l.reaction_1 && (F[0](ADASModel.p.requestStop == 1))) ==> (F[0, 55 ms]( ADASModel.b.brakesApplied == 1 )))", expect=true)

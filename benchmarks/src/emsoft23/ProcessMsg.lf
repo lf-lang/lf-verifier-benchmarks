@@ -1,5 +1,6 @@
 target C
 
+@lang("c")
 reactor Task {
     input inp:int
     output out:int
@@ -33,6 +34,7 @@ reactor Task {
 }
 
 @property(name="panic_free", tactic="bmc", spec="G[5 nsec](ProcessMsg.task.panic != 1)", expect=true)
+@lang("c")
 main reactor {
     task = new Task()
     task.out -> task.inp

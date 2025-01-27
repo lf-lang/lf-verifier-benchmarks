@@ -3,6 +3,7 @@
  */
 target C
 
+@lang("c")
 reactor Source {
     input inp:int
     output out:int
@@ -23,6 +24,7 @@ reactor Source {
     =}
 }
 
+@lang("c")
 reactor Node {
     input inp:int
     output out:int
@@ -32,6 +34,7 @@ reactor Node {
 }
 
 @property(name="full_circle", tactic="bmc", spec="F[0, 10 nsec](Ring.s.reaction_3)", expect=true)
+@lang("c")
 main reactor {
     s = new Source()
     n1 = new Node()

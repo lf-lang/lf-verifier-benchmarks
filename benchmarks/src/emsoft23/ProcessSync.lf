@@ -1,5 +1,6 @@
 target C
 
+@lang("c")
 reactor Task {
     /* Define the counters used in the demo application...  */
     state tm_synchronization_processing_counter:int=0
@@ -12,6 +13,7 @@ reactor Task {
 }
 
 @property(name="correctness", tactic="bmc", spec="G[2 nsec](ProcessSync.task.tm_synchronization_processing_counter == 3)", expect=true)
+@lang("c")
 main reactor {
     task = new Task()
 }

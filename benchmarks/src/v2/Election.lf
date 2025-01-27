@@ -1,7 +1,7 @@
 target C
 
 @lang("c")
-reactor Node(id: int = 0) {
+reactor CNode(id: int = 0) {
     input inp: int
     output out: int
 
@@ -24,6 +24,29 @@ reactor Node(id: int = 0) {
     =}
 }
 
+@lang("rust")
+reactor RustNode(id: i32 = 0) {
+    input inp: i32
+    output out: i32
+
+    logical action a(10 msec):i32
+
+    state elected:i32 = 0
+
+    reaction(startup) -> out {=
+        ctx.set(out, self.id);
+    =}
+    reaction(a) -> out {=
+        ctx.set(out, ctx.get(a));
+    =}
+    reaction(inp) -> a {=
+        if (ctx.get(inp) > self.id) {
+            ctx.schedule_int(a, 0, ctx.get(inp));
+        } else if (ctx.get(inp) == self.id) {
+            self.elected = 1;
+        }
+    =}
+}
 
 @property(
     name="exactly_one_elected", 
@@ -32,9 +55,9 @@ reactor Node(id: int = 0) {
     expect=true)
 @lang("c")
 main reactor {
-    i0 = new Node(id=0)
-    i1 = new Node(id=1)
-    i2 = new Node(id=2)
+    i0 = new CNode(id=0)
+    i1 = new RustNode(id=1)
+    i2 = new CNode(id=2)
     i0.out -> i1.inp
     i1.out -> i2.inp
     i2.out -> i0.inp

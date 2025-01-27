@@ -4,6 +4,7 @@
  */
 target C
 
+@lang("c")
 reactor _TrafficLight {
     input pedestrian:int
     output sigR:int
@@ -68,6 +69,7 @@ reactor _TrafficLight {
     =}
 }
 
+@lang("c")
 reactor Pedestrian {
     output out:int
     timer t(1 sec, 10 sec)
@@ -77,6 +79,7 @@ reactor Pedestrian {
 }
 
 @property(name="green_reachable", tactic="bmc", spec="F[0, 5 sec](TrafficLight.t._mode == 1)", expect=false)
+@lang("c")
 main reactor {
     t = new _TrafficLight()
     p = new Pedestrian()

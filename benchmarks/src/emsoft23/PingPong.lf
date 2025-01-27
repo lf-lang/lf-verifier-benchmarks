@@ -23,6 +23,7 @@ target C {
     fast: true
 }
 
+@lang("c")
 reactor Ping {
     input receive: int
     output send: int
@@ -45,6 +46,7 @@ reactor Ping {
     =}
 }
 
+@lang("c")
 reactor Pong {
     input receive: int
     output send: int
@@ -58,6 +60,7 @@ reactor Pong {
 }
 
 @property(name="no_two_consecutive_pings", tactic="bmc", spec="G[0, 4 nsec](PingPong.ping.reaction_2 ==> X(!PingPong.ping.reaction_2))", expect=false)
+@lang("c")
 main reactor PingPong {
     ping = new Ping()
     pong = new Pong()

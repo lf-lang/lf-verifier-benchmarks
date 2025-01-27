@@ -1,5 +1,6 @@
 target C;
 
+@lang("c")
 reactor UMS {
     input query:int
     input req:int
@@ -37,6 +38,7 @@ reactor UMS {
     =}
 }
 
+@lang("c")
 reactor Train {
     output query:int
     output req:int
@@ -68,6 +70,7 @@ reactor Train {
 }
 
 @property(name="ums_receives_done_within_11_minutes", tactic="bmc", spec="F[0, 11 minute](Subway.u.reaction_4)", expect=false)
+@lang("c")
 main reactor {
     u = new UMS()
     t = new Train()

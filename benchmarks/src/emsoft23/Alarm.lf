@@ -1,5 +1,6 @@
 target C;
 
+@lang("c")
 reactor Controller {
 
     output out:int
@@ -34,6 +35,7 @@ reactor Controller {
     tactic = "bmc",
     spec = "G[0, 1 sec]((Alarm.c.reaction_1) ==> F(0, 1 sec](Alarm.c.fault == 0)))",
     expect = false)
+@lang("c")
 main reactor {
    c =  new Controller();
 }

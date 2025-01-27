@@ -1,5 +1,6 @@
 target C;
 
+@lang("c")
 reactor Controller {
     output out:int
     reaction(startup) -> out {=        
@@ -7,6 +8,7 @@ reactor Controller {
     =}
 }
 
+@lang("c")
 reactor Vision {
     
     input inp:int
@@ -22,6 +24,7 @@ reactor Vision {
     =}
 }
 
+@lang("c")
 reactor Door {
     input inp:int
     state doorOpen:int
@@ -34,6 +37,7 @@ reactor Door {
 }
 
 @property(name="vision_works", tactic="bmc", spec="((AircraftDoor.vision.ramp == 0) ==> (G[0 sec](AircraftDoor.door.reaction_1 ==> (AircraftDoor.door.doorOpen == 1))))", expect=true)
+@lang("c")
 main reactor AircraftDoor {
     controller	= new Controller();
     vision		= new Vision();
