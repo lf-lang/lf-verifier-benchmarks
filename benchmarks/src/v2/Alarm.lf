@@ -1,0 +1,42 @@
+target C;
+
+@lang("rust")
+reactor Controller {
+
+    output out:i32
+    output out2:i32
+    state fault:i32
+
+    logical action turnOff(1 sec):i32
+
+    @label("Computation")
+    reaction(startup) -> out, out2, turnOff {=
+        // ... Operation
+        self.fault = 1; // Fault occurs
+
+        // Fault handling
+        if (self.fault == 1) {
+            ctx.schedule_int(turnOff, 0, 0); // Wrong action value. Should be 1.
+            ctx.set(out, 5);
+            ctx.set(out2, 10);
+        }
+    =}
+
+    @label("Stop")
+    reaction(turnOff) {=
+        // Trigger the alarm and reset fault.
+        if (ctx.get(turnOff) == 1) {
+            self.fault = 0;
+        }
+    =}
+}
+
+@property(
+    name = "machine_stops_within_1_sec",
+    tactic = "bmc",
+    spec = "G[0, 1 sec]((Alarm.c.reaction_1) ==> F(0, 1 sec](Alarm.c.fault == 0)))",
+    expect = false)
+@lang("c")
+main reactor {
+   c =  new Controller();
+}

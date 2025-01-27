@@ -1,0 +1,48 @@
+target C;
+
+@lang("c")
+reactor Controller {
+    output out:int
+    reaction(startup) -> out {=        
+        lf_set(out, 1);
+    =}
+}
+
+@lang("rust")
+reactor Vision {
+    
+    input inp:i32
+    output out:i32
+    state ramp:i32 = 0
+    
+    reaction(inp) -> out {=
+        if (self.ramp == 1) {
+            ctx.set(out, 0); // 0 = Do not open.
+        } else {
+            ctx.set(out, 1); // 1 = Open.
+        }
+    =}
+}
+
+@lang("rust")
+reactor Door {
+    input inp:i32
+    state doorOpen:i32
+    reaction(inp) {=
+        if (ctx.get(inp) == 1) {
+            self.doorOpen = 1; // Open
+        } else if (ctx.get(inp) == 0) {
+            self.doorOpen = 0; // Closed
+        }
+    =}
+}
+
+@property(name="vision_works", tactic="bmc", spec="((AircraftDoor.vision.ramp == 0) ==> (G[0 sec](AircraftDoor.door.reaction_1 ==> (AircraftDoor.door.doorOpen == 1))))", expect=true)
+@lang("c")
+main reactor AircraftDoor {
+    controller	= new Controller();
+    vision		= new Vision();
+    door		= new Door();
+    controller.out -> vision.inp;
+    vision.out -> door.inp;
+}
