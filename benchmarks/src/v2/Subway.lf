@@ -1,0 +1,83 @@
+target C;
+
+@lang("c")
+reactor UMS {
+    input query:int
+    input req:int
+    input done:int
+    output response:int
+    output grant:int
+    state pos:int // 0 -> AB, 1 -> BC, else ill positioned.
+    state inUse:int // 0 -> false, 1 -> true.
+    logical action issue
+
+    reaction(startup) {=
+        self->pos = 0;
+        self->inUse = 0;
+    =}
+    
+    reaction(query) -> response {=
+        lf_set(response, self->pos);
+    =}
+        
+    reaction(req) -> grant, issue {=
+        if (self->inUse == 0) {
+            lf_set(grant, 1);
+            lf_schedule(issue, 0);
+        } else {
+            lf_set(grant, 0);
+        }
+    =}
+
+    reaction(done) {=
+        self->inUse = 0;
+    =}
+
+    reaction(issue) {=
+        self->inUse = 1;
+    =}
+}
+
+@lang("rust")
+reactor Train {
+    output query:i32
+    output req:i32
+    output done:i32
+    input response:i32
+    input grant:i32
+    logical action wait(2 minute)
+    logical action passing(10 minute)
+    
+    reaction(startup) -> query {=
+        ctx.set(query, 1);
+    =}
+    reaction(wait) -> req {=
+        ctx.set(req, 1);
+    =}
+    reaction(passing) -> done {=
+        ctx.set(done, 1);
+    =}
+    reaction(response) -> wait, req {=
+        if (ctx.get(response) == 0) { // This is a real bug. Set it to 1 to pass.
+            ctx.schedule(wait, 0);
+        } else {
+            ctx.set(req, 1);
+        }
+    =}
+    reaction(grant) -> passing {=
+        ctx.schedule(passing, 0);
+    =}
+}
+
+@property(name="ums_receives_done_within_11_minutes", tactic="bmc", spec="F[0, 11 minute](Subway.u.reaction_4)", expect=false)
+@lang("c")
+main reactor {
+    u = new UMS()
+    t = new Train()
+
+    t.done -> u.done
+    t.query -> u.query
+    t.req -> u.req
+    u.grant -> t.grant
+    u.response -> t.response
+}

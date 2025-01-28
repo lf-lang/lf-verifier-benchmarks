@@ -1,0 +1,106 @@
+target C
+
+@lang("rust")
+reactor Vehicle {
+	
+	input g:i32
+    
+    output done:i32
+    output request:i32
+
+    state grant:i32 = 0
+    
+    // The assumption baked in here is quite strong.
+    // An additional delay or a physical action
+    // will be more suitable for modeling.
+    logical action finish(5 sec)
+    
+    // state duration_of_use:time=1 sec
+    
+    reaction(startup) -> request {=
+        // info_print("Vehicle %d has arrived.", self.bank_index);
+        ctx.set(request, 1);
+    =}
+    
+    reaction(g) -> finish {=
+        self.grant = ctx.get(g);
+        // info_print("Vehicle %d: enters the intersection.", self.bank_index);
+        ctx.schedule(finish, 0);
+    =}
+    
+    reaction(finish) -> done {=
+        // info_print("Vehicle %d: leaves the intersection.", self.bank_index);
+        ctx.set(done, 1);
+    =}
+}
+
+@lang("c")
+reactor RSU {
+    
+    input request_1:int
+    input request_2:int
+    input done_1:int
+    input done_2:int
+    output grant_1:int
+    output grant_2:int
+    
+    state assigned:int
+    state available_time:int = 0
+    state const_wait:int = 1// This can in fact be dynamically calculated and can still produce the same issue.
+    state current_time:int = 0
+    state _done_1:int = 0
+    state _done_2:int = 0
+
+    logical action issue_grant_1
+    logical action issue_grant_2
+
+    reaction(startup) {=
+        self->const_wait = 1; // 1 second.
+        self->current_time = 0;
+    =}
+    
+    reaction(request_1, request_2) -> issue_grant_1, issue_grant_2 {=
+        // info_print("Responding to a request.");
+        if (self->current_time > self->available_time) {
+            // Give priority to vehicle 1.
+            if (request_1->is_present)
+                lf_schedule(issue_grant_1, 0);
+            else
+                lf_schedule(issue_grant_2, 0);
+            self->available_time += self->current_time + self->const_wait;
+        }
+    =}
+    
+    reaction(issue_grant_1) -> grant_1 {=
+        lf_set(grant_1, 1);
+        // info_print("RSU: grants the right of way to vehicle %d.", issue_grant->value);
+    =}
+
+    reaction(issue_grant_2) -> grant_2 {=
+        lf_set(grant_2, 1);
+        // info_print("RSU: grants the right of way to vehicle %d.", issue_grant->value);
+    =}
+    
+    reaction(done_1, done_2) {=
+        if (done_1->is_present)
+            self->_done_1 = 1;
+        else
+            self->_done_2 = 1;
+    =}
+}
+
+@property(name="mutual_exclusion", tactic="bmc", spec="G[0, 10 sec](!(RoadsideUnit.v1.grant == 1 && RoadsideUnit.v2.grant == 1))", expect=true)
+@lang("c")
+main reactor {
+    
+    v1 = new Vehicle()
+    v2 = new Vehicle()
+    rsu = new RSU()
+    
+    v1.request -> rsu.request_1
+    v2.request -> rsu.request_2
+    v1.done -> rsu.done_1
+    v2.done -> rsu.done_2
+    rsu.grant_1 -> v1.g
+    rsu.grant_2 -> v2.g
+}

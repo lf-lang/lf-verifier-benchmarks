@@ -1,0 +1,69 @@
+target C;
+
+@lang("rust")
+reactor Source {
+    output out:i32
+    state value:i32=0
+    logical action a(1 sec)
+    timer t(0, 2 sec)
+    reaction(t) -> a, out {=
+        self.value += 1;
+        ctx.set(out, self.value);
+        ctx.schedule(a, 0);
+    =}
+    reaction(a) -> out {=
+        ctx.set(out, self.value);
+    =}
+}
+
+@lang("c")
+reactor Node {
+    
+    input  inp:int
+    output out:int
+    
+    state  count:int = 0
+    state  payload:int = 0
+
+    logical action send_output
+
+    reaction(inp) -> send_output {=
+        self->payload = inp->value;
+        self->count += 1;
+        lf_schedule(send_output, 0);
+    =}
+
+    reaction(send_output) -> out {=
+        lf_set(out, self->payload);
+        self->count -= 1;
+    =}
+}
+
+@lang("rust")
+reactor Sink {
+    input inp:i32
+    state received:i32
+    reaction(inp) {=
+        self.received = ctx.get(inp);
+    =}
+}
+
+@property(name="count_bounded", tactic="bmc", spec="G[0, 1 sec](!(Pipe.node1.count <= 1 && Pipe.node2.count <= 1 && Pipe.node3.count <= 1 && Pipe.node4.count <= 1 && Pipe.node5.count <= 1))", expect=false)
+@lang("c")
+main reactor {
+    
+    source = new Source()
+    node1 = new Node()
+    node2 = new Node()
+    node3 = new Node()
+    node4 = new Node()
+    node5 = new Node()
+    sink = new Sink()
+
+    source.out -> node1.inp
+    node1.out -> node2.inp
+    node2.out -> node3.inp
+    node3.out -> node4.inp
+    node4.out -> node5.inp
+    node5.out -> sink.inp
+}

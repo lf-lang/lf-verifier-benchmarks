@@ -1,0 +1,64 @@
+/**
+ * (Original) Description:
+ * This example illustrates the "Verify Absence-of-Errors" mode.
+ * The server expects a tuple `{REQUEST,PID-OF-SENDER}`
+ * but the main sends to it an atom instead of its pid, then
+ * generating an exception when the server tries to send back
+ * a response to what he assumes to be a pid.
+ *
+ * The verification step discovers a *genuine* counter-example.
+ * To inspect the error trace run bfc on the generated model
+ * and look at the trace alongside the dot model of the ACS.
+ */
+
+target C;
+
+@lang("c")
+reactor Client {
+    input inp:int
+    output out:int
+    state req:int=0
+
+    reaction(startup) -> out {=
+        // Sends a query
+        self->req = 0; // 1 is valid. 0 is invalid.
+        lf_set(out, self->req);
+    =}
+
+    reaction(inp) {=
+        // Should not be invoked.
+        self->req = 0;
+    =}
+}
+
+@lang("rust")
+reactor Server {
+    
+    input inp:i32
+    output out:i32
+    state error:i32
+    logical action err(1 nsec)
+
+    reaction(inp) -> out, err {=
+        if (ctx.get(inp) == 0) {
+            ctx.schedule(err, 0);
+        }
+        else {
+            ctx.set(out, inp->value);
+        }
+    =}
+
+    // Error handling logic.
+    reaction(err) {=
+        self.error = 1;
+    =}
+}
+
+@property(name="success", tactic="bmc", spec="(F[0, 5 nsec](UnsafeSend.c.reaction_2))", expect=false)
+@lang("c")
+main reactor {
+    c = new Client()
+    s = new Server()
+    c.out -> s.inp after 2 nsec
+    s.out -> c.inp after 2 nsec
+}
