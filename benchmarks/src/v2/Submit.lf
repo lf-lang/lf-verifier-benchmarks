@@ -1,5 +1,6 @@
 target C
 
+@lang("c")
 reactor Coordinator {
   input ok1: bool
   input ok2: bool
@@ -65,6 +66,7 @@ reactor Coordinator {
   =}
 }
 
+@lang("c")
 reactor Participant(id: int = 0) {
   input review: bool
   input ack: bool
@@ -88,6 +90,7 @@ reactor Participant(id: int = 0) {
     tactic = "bmc",
     spec = "G[0, 60 ms](Submit.c.submitted ==> (Submit.p0.looks_good && Submit.p1.looks_good && Submit.p2.looks_good)",
     expect = true)
+@lang("c")
 main reactor {
   c = new Coordinator()
   p0 = new Participant(id=0)

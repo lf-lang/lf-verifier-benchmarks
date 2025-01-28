@@ -44,7 +44,7 @@ reactor Server {
             ctx.schedule(err, 0);
         }
         else {
-            ctx.set(out, inp->value);
+            ctx.set(out, ctx.get(inp));
         }
     =}
 

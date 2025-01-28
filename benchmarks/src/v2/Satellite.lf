@@ -13,47 +13,63 @@ target C {
 }
 
 preamble {=
-  // Fixed point confuguration
-  // #define FIXED_POINT_FRACTION_BITS 12
-  // #define FIXED_POINT_SCALE (1 << 12)
+  static int32_t emulate_right_shift_12_bits(int32_t x) {
+    // Compute truncated division (x / 4096)
+    int32_t quotient = x / 4096;
+
+    // Calculate remainder without using %
+    int32_t remainder = x - (quotient * 4096);
+
+    // Adjust for negative numbers with remainder (floor division)
+    if (x < 0 && remainder != 0) {
+      quotient -= 1;
+    }
+
+    return quotient;
+  }
 =}
 
-reactor Controller(Kp_float: float = 0.3, Ki_float: float = 0.1, Kd_float: float = 0.0) {
-  input current_angle_x : int
-  input current_angle_y : int
-  input current_angle_z : int
+@lang("c")
+reactor Controller(
+  Kp_shifted_12: int32_t = 1229,  // 0.3 << 12 ~= 0.3 * 4096
+  Ki_shifted_12: int32_t = 410,   // 0.1 << 12 ~= 0.1 * 4096
+  Kd_shifted_12: int32_t = 0      // 0.0 << 12 ~= 0.0 * 4096
+) {
+  input current_angle_x : int32_t
+  input current_angle_y : int32_t
+  input current_angle_z : int32_t
 
-  input angular_velocity_x : int
-  input angular_velocity_y : int
-  input angular_velocity_z : int
+  input angular_velocity_x : int32_t
+  input angular_velocity_y : int32_t
+  input angular_velocity_z : int32_t
 
-  input desired_angle_x : int
-  input desired_angle_y : int
-  input desired_angle_z : int
+  input desired_angle_x : int32_t
+  input desired_angle_y : int32_t
+  input desired_angle_z : int32_t
 
-  output control_signal_x : int
-  output control_signal_y : int
-  output control_signal_z : int
+  output control_signal_x : int32_t
+  output control_signal_y : int32_t
+  output control_signal_z : int32_t
 
-  state _state_last_error_x : int
-  state _state_last_error_y : int
-  state _state_last_error_z : int
-  state _state_error_accumulated_x : int
-  state _state_error_accumulated_y : int
-  state _state_error_accumulated_z : int
-  state _state_desired_angle_x : int
-  state _state_desired_angle_y : int
-  state _state_desired_angle_z : int
-  state _state_Kp : int
-  state _state_Ki : int
-  state _state_Kd : int
+  state _state_last_error_x : int32_t
+  state _state_last_error_y : int32_t
+  state _state_last_error_z : int32_t
+  state _state_error_accumulated_x : int32_t
+  state _state_error_accumulated_y : int32_t
+  state _state_error_accumulated_z : int32_t
+  state _state_desired_angle_x : int32_t
+  state _state_desired_angle_y : int32_t
+  state _state_desired_angle_z : int32_t
+  state _state_Kp : int32_t
+  state _state_Ki : int32_t
+  state _state_Kd : int32_t
 
-  state num_iter: int = 0
+  state num_iter: int32_t = 0
 
   reaction(startup) {=
-    self->_state_Kp = self->Kp_float * (1 << 12); // A real bug: I once forgot "* (1 << 12)" and Motor received 0s only.
-    self->_state_Ki = self->Ki_float * (1 << 12);
-    self->_state_Kd = self->Kd_float * (1 << 12);
+    self->_state_Kp = self->Kp_shifted_12;
+    self->_state_Ki = self->Ki_shifted_12;
+    self->_state_Kd = self->Kd_shifted_12;
     // #ifndef NDEBUG
     // lf_print("Controller gains: Kp=%i Ki=%i Kd=%i", self->_state_Kp, self->_state_Ki, self->_state_Kd);
     // #endif
@@ -76,9 +92,9 @@ reactor Controller(Kp_float: float = 0.3, Ki_float: float = 0.1, Kd_float: float
     (void)angular_velocity_x;
     (void)angular_velocity_y;
     (void)angular_velocity_z;
-    int error_x;
-    int error_y;
-    int error_z;
+    int32_t error_x;
+    int32_t error_y;
+    int32_t error_z;
 
     error_x = (current_angle_x->value - self->_state_desired_angle_x);
     error_y = (current_angle_y->value - self->_state_desired_angle_y);
@@ -88,21 +104,15 @@ reactor Controller(Kp_float: float = 0.3, Ki_float: float = 0.1, Kd_float: float
     self->_state_error_accumulated_y += error_y;
     self->_state_error_accumulated_z += error_z;
 
-    control_signal_x->value = ((self->_state_Kp * error_x) >> 12) +
-                  ((self->_state_Kp * self->_state_error_accumulated_x) >>
-                    12)  // integral component
-                  + ((self->_state_Kd * (self->_state_last_error_x - error_x)) >>
-                      12);  // differential component
-    control_signal_y->value = ((self->_state_Kp * error_y) >> 12) +
-                  ((self->_state_Ki * self->_state_error_accumulated_y) >>
-                    12)  // integral component
-                  + ((self->_state_Kd * (self->_state_last_error_y - error_y)) >>
-                      12);  // differential component
-    control_signal_z->value = ((self->_state_Kp * error_z) >> 12) +
-                  ((self->_state_Ki * self->_state_error_accumulated_z) >>
-                    12)  // integral component
-                  + ((self->_state_Kd * (self->_state_last_error_z - error_z)) >>
-                      12);
+    control_signal_x->value = (emulate_right_shift_12_bits(self->_state_Kp * error_x)) +
+                  (emulate_right_shift_12_bits(self->_state_Kp * self->_state_error_accumulated_x))  // integral component
+                  + (emulate_right_shift_12_bits(self->_state_Kd * (self->_state_last_error_x - error_x)));  // differential component
+    control_signal_y->value = (emulate_right_shift_12_bits(self->_state_Kp * error_y)) +
+                  (emulate_right_shift_12_bits(self->_state_Ki * self->_state_error_accumulated_y))  // integral component
+                  + (emulate_right_shift_12_bits(self->_state_Kd * (self->_state_last_error_y - error_y)));  // differential component
+    control_signal_z->value = (emulate_right_shift_12_bits(self->_state_Kp * error_z)) +
+                  (emulate_right_shift_12_bits(self->_state_Ki * self->_state_error_accumulated_z))  // integral component
+                  + (emulate_right_shift_12_bits(self->_state_Kd * (self->_state_last_error_z - error_z)));
 
     self->_state_last_error_x = error_x;
     self->_state_last_error_y = error_y;
@@ -114,24 +124,26 @@ reactor Controller(Kp_float: float = 0.3, Ki_float: float = 0.1, Kd_float: float
   =}
 }
 
+@lang("c")
 reactor Motor {
-  input in_x: int
-  input in_y: int
-  input in_z: int
+  input in_x: int32_t
+  input in_y: int32_t
+  input in_z: int32_t
 
-  state num_iter: int = 0
+  state num_iter: int32_t = 0
 
   reaction(in_x, in_y, in_z) {=
-    // #ifndef NDEBUG
-    // lf_print("Motor received: in_x=%i in_y=%i in_z=%i", in_x->value, in_y->value, in_z->value);
-    // #endif
+    #ifndef NDEBUG
+    lf_print("Motor received: in_x=%i in_y=%i in_z=%i", in_x->value, in_y->value, in_z->value);
+    #endif
   =}
 }
 
+@lang("c")
 reactor UserInput {
-  output desired_angle_x: int
-  output desired_angle_y: int
-  output desired_angle_z: int
+  output desired_angle_x: int32_t
+  output desired_angle_y: int32_t
+  output desired_angle_z: int32_t
 
   reaction(startup) -> desired_angle_x, desired_angle_y, desired_angle_z {=
     desired_angle_x->value = 4096;
@@ -143,38 +155,39 @@ reactor UserInput {
   =}
 }
 
+@lang("c")
 reactor SensorFusion {
-  input gyro1_x: int
-  input gyro1_y: int
-  input gyro1_z: int
+  input gyro1_x: int32_t
+  input gyro1_y: int32_t
+  input gyro1_z: int32_t
 
-  input gyro2_x: int
-  input gyro2_y: int
-  input gyro2_z: int
+  input gyro2_x: int32_t
+  input gyro2_y: int32_t
+  input gyro2_z: int32_t
 
-  output angle_x: int
-  output angle_y: int
-  output angle_z: int
+  output angle_x: int32_t
+  output angle_y: int32_t
+  output angle_z: int32_t
 
-  output angular_velocity_x: int
-  output angular_velocity_y: int
-  output angular_velocity_z: int
+  output angular_velocity_x: int32_t
+  output angular_velocity_y: int32_t
+  output angular_velocity_z: int32_t
 
-  state _state_last_angle_x: int
-  state _state_last_angle_y: int
-  state _state_last_angle_z: int
+  state _state_last_angle_x: int32_t
+  state _state_last_angle_y: int32_t
+  state _state_last_angle_z: int32_t
   state _state_delta_t: uint32_t
 
-  state last_gyro_x: int
-  state last_gyro_y: int
-  state last_gyro_z: int
+  state last_gyro_x: int32_t
+  state last_gyro_y: int32_t
+  state last_gyro_z: int32_t
   
-  state delta_t: int
+  state delta_t: int32_t
 
-  state num_iter: int = 0
+  state num_iter: int32_t = 0
 
   reaction(startup) {=
-    self->_state_delta_t = (unsigned int )(0.001 * (1 << 12));
+    self->_state_delta_t = 4; // 0.001 << 12 ~= 0.001 * 4096
     // #ifndef NDEBUG
     // lf_print("SensorFusion delta_t=%i", self->_state_delta_t);
     // #endif
@@ -185,16 +198,16 @@ reactor SensorFusion {
     // lf_print("Got gyro1=[%i %i %i] gyro2=[%i %i %i]", gyro1_x->value, gyro1_y->value, gyro1_z->value, gyro2_x->value, gyro2_y->value, gyro2_z->value);
     // #endif
     
-    int gyro_avg_x = (gyro1_x->value + gyro2_x->value) >> 1;
-    int gyro_avg_y = (gyro1_y->value + gyro2_y->value) >> 1;
-    int gyro_avg_z = (gyro1_z->value + gyro2_z->value) >> 1;
+    int32_t gyro_avg_x = (gyro1_x->value + gyro2_x->value) / 2;
+    int32_t gyro_avg_y = (gyro1_y->value + gyro2_y->value) / 2;
+    int32_t gyro_avg_z = (gyro1_z->value + gyro2_z->value) / 2;
 
     angle_x->value = self->_state_last_angle_x +
-              ((gyro_avg_x * self->_state_delta_t) >> 12);
+              (emulate_right_shift_12_bits(gyro_avg_x * self->_state_delta_t));
     angle_y->value = self->_state_last_angle_y +
-              ((gyro_avg_y * self->_state_delta_t) >> 12);
+              (emulate_right_shift_12_bits(gyro_avg_y * self->_state_delta_t));
     angle_z->value = self->_state_last_angle_z +
-              ((gyro_avg_z * self->_state_delta_t) >> 12);
+              (emulate_right_shift_12_bits(gyro_avg_z * self->_state_delta_t));
 
     angular_velocity_x->value = gyro_avg_x;
     angular_velocity_y->value = gyro_avg_y;
@@ -213,18 +226,19 @@ reactor SensorFusion {
   =}
 }
 
-reactor Gyroscope(id: int = 0) {
+@lang("c")
+reactor Gyroscope(id: int32_t = 0) {
   timer t(10 msec, 1 msec)
-  output out_x: int
-  output out_y: int
-  output out_z: int
+  output out_x: int32_t
+  output out_y: int32_t
+  output out_z: int32_t
 
-  state num_iter: int = 0
+  state num_iter: int32_t = 0
 
   preamble {=
     #define NUM_GYRO_SAMPLES 289
 
-    static int synthetic_gyro[NUM_GYRO_SAMPLES][3] = {{0, 0, 0},
+    static int32_t synthetic_gyro[NUM_GYRO_SAMPLES][3] = {{0, 0, 0},
                                            {0, 0, 0},
                                            {0, 0, 0},
                                            {6060, 6059, 1615},
@@ -516,10 +530,10 @@ reactor Gyroscope(id: int = 0) {
   =}
 
   reaction(t) -> out_x, out_y, out_z {=
-    static int i = 0;
+    static int32_t i = 0;
 
-    int base_idx = i * 3;
-    int *sample = synthetic_gyro[base_idx];
+    int32_t base_idx = i * 3;
+    int32_t *sample = synthetic_gyro[base_idx];
     out_x->value = *sample;
     sample++;
     out_y->value = *sample;
@@ -534,7 +548,8 @@ reactor Gyroscope(id: int = 0) {
   =}
 }
 
-@property(name="test", tactic="bmc", spec="G[0, 1 msec](false)")
+@lang("c")
+@property(name="test", tactic="bmc", spec="G[0, 10 msec](false)")
 main reactor {
   controller = new Controller()
   userInput = new UserInput()
