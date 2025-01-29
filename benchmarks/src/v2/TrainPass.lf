@@ -5,11 +5,11 @@ reactor UMS {
     input query : int
     output response:bool
 
-    reaction(query) -> response {=
+    reaction (query) -> response {=
         if (query->value < 3) {
             lf_set(response, rand() % 2 == 1);
         } else {
-            lf_set(response, 1);
+            lf_set(response, true);
         }
     =}
 }
@@ -21,24 +21,24 @@ reactor Train {
     state count : i32 = 0
     state passed : bool = false
     logical action wait(2 minute)
-    logical action passing(10 minute)
+    logical action pass(10 minute)
 
-    reaction(startup) -> query {=
+    reaction (startup) -> query {=
         ctx.set(query, self.count);
     =}
 
-    reaction(wait) -> query {=
-        self.count = self.count.wrapping_add(1);
+    reaction (wait) -> query {=
+        self.count = self.count.saturating_add(1);
         ctx.set(query, self.count);
     =}
 
-    reaction(passing) -> query {=
+    reaction (pass) {=
         self.passed = true;
     =}
-    
-    reaction(response) -> wait, passing {=
-        if (ctx.get(response)) {
-            ctx.schedule(passing, 0);
+
+    reaction (response) -> wait, pass {=
+        if (ctx.get(response).unwrap()) {
+            ctx.schedule(pass, 0);
         } else {
             ctx.schedule(wait, 0);
         }
