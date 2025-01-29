@@ -1,0 +1,57 @@
+target C;
+
+@lang("c")
+reactor UMS {
+    input query : int
+    output response:bool
+
+    reaction(query) -> response {=
+        if (query->value < 3) {
+            lf_set(response, rand() % 2 == 1);
+        } else {
+            lf_set(response, 1);
+        }
+    =}
+}
+
+@lang("rust")
+reactor Train {
+    input response : bool
+    output query: i32
+    state count : i32 = 0
+    state passed : bool = false
+    logical action wait(2 minute)
+    logical action passing(10 minute)
+
+    reaction(startup) -> query {=
+        ctx.set(query, self.count);
+    =}
+
+    reaction(wait) -> query {=
+        self.count = self.count.wrapping_add(1);
+        ctx.set(query, self.count);
+    =}
+
+    reaction(passing) -> query {=
+        self.passed = true;
+    =}
+    
+    reaction(response) -> wait, passing {=
+        if (ctx.get(response)) {
+            ctx.schedule(passing, 0);
+        } else {
+            ctx.schedule(wait, 0);
+        }
+    =}
+}
+
+@property(name="ums_receives_done_within_11_minutes", tactic="bmc", spec="F[0, 11 minute](Subway.t.passed)", expect=false)
+@lang("c")
+main reactor {
+    u = new UMS()
+    t = new Train()
+
+    t.query -> u.query
+    u.response -> t.response
+}
+
