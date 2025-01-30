@@ -34,7 +34,7 @@ reactor _TrafficLight {
         }
         // GREEN
         else if (self._mode == 1) {
-            if (pedestrian->is_present) {
+            if (pedestrian.is_present) {
                 if (self.count >= 60) {
                     ctx.set(sigY, 1);
                     ctx.schedule(resetCount, 0);
