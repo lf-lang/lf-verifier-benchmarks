@@ -37,7 +37,7 @@ reactor Train {
     =}
 
     reaction (response) -> wait, pass {=
-        if (ctx.get(response).unwrap()) {
+        if (ctx.get(response)) {
             ctx.schedule(pass, 0);
         } else {
             ctx.schedule(wait, 0);
