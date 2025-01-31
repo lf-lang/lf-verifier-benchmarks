@@ -104,10 +104,10 @@ reactor Control {
     output MotorDown:int
     output DoorCommand:int
 
-    state Floor:int
-    state DoorIsOpen:int
-    state StopPressed:int
-    state direction:int // 1 = UP, -1 = DOWN, 0 = NOT MOVING
+    state Floor:int = 0
+    state DoorIsOpen:int = 0
+    state StopPressed:int = 0
+    state direction:int = 0 // 1 = UP, -1 = DOWN, 0 = NOT MOVING
 
     // Call from floor 1
     reaction(Call1) -> MotorDown, DoorCommand {=
@@ -185,8 +185,8 @@ reactor Simulator {
     logical action CheckDoor(2 sec)
     logical action ResetDirection
 
-    state direction:int(0)  // 1 = UP, -1 = DOWN, 0 = NOT MOVING
-    state doorStatus:int(0) // 1 = OPEN, 0 = CLOSED
+    state direction:int=0  // 1 = UP, -1 = DOWN, 0 = NOT MOVING
+    state doorStatus:int=0 // 1 = OPEN, 0 = CLOSED
 
     reaction(Call1Pressed) -> Call1 {=
         lf_set(Call1, 1);
@@ -239,7 +239,7 @@ reactor Simulator {
     =}
 }
 
-@property(name="moves_when_safe", tactic="bmc", spec="G[0, 15 sec]((Elevator_s_reaction_3 && (Elevator_s_direction != 0)) ==> (Elevator_s_doorStatus == 0 && Elevator_c_StopPressed == 0))", CT=15, expect=true)
+@property(name="moves_when_safe", tactic="bmc", spec="G[0, 15 sec]((Elevator_s_reaction_4 && (Elevator_s_direction != 0)) ==> (Elevator_s_doorStatus == 0 && Elevator_c_StopPressed == 0))", CT=15, expect=true)
 main reactor {
     c = new Control()
     s = new Simulator()    

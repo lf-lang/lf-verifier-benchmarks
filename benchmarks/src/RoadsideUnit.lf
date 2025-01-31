@@ -12,7 +12,7 @@ reactor Vehicle {
     // will be more suitable for modeling.
     logical action finish(5 sec);
     
-    state duration_of_use:time(1 sec);
+    state duration_of_use:time=1 sec;
     
     reaction(startup) -> request {=
         // info_print("Vehicle %d has arrived.", self->bank_index);

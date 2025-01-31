@@ -4,10 +4,10 @@ target C {
 
 reactor _Factorial {
     output out:int
-    timer t(0, 1 nsec);
+    timer t(0, 1 nsec)
     logical action prepForNext
 
-    state N:int(0)
+    state N:int=0
     state result:int
     state lastResult:int
 
@@ -27,17 +27,17 @@ reactor _Factorial {
 }
 
 reactor Printer {
-    input in:int
+    input inp:int
     state result:int
-    reaction(in) {=
-        self->result = in->value;
+    reaction(inp) {=
+        self->result = inp->value;
         printf("%d\n", self->result);
     =}
 }
 
-@property(name="correctness", tactic="bmc", spec="G[10 nsec](Factorial_printer_reaction_0 ==> Factorial_printer_result == 3628800)", expect=true)
+@property(name="correctness", tactic="bmc", spec="G[10 nsec](Factorial_printer_reaction_1 ==> Factorial_printer_result == 3628800)", expect=true)
 main reactor {
     factorial = new _Factorial()
     printer = new Printer()
-    factorial.out -> printer.in
+    factorial.out -> printer.inp
 }
