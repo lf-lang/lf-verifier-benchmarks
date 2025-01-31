@@ -10,8 +10,8 @@ mkdir -p ./results
 result_file=./results/result-$(date +"%Y-%m-%d-%T").txt
 echo "$result_file"
 
-# Clean the model-gen directory.
-rm -rf ./$bmark_dir/model-gen
+# Clean the mod-gen directory.
+rm -rf ./$bmark_dir/mod-gen
 
 # Run benchmarks and collect results.
 for program_file in $bmark_dir/src/*.lf; do
@@ -28,11 +28,11 @@ for program_file in $bmark_dir/src/*.lf; do
     echo -e "\n" >> $result_file
 
     echo "*** Time for generating SMT from Uclid:" >> $result_file
-    { time uclid -g "$bmark_dir/model-gen/$program/smt" $bmark_dir/model-gen/$program/*.ucl; } 2>> $result_file
+    { time uclid -g "$bmark_dir/mod-gen/$program/smt" $bmark_dir/mod-gen/$program/*.ucl; } 2>> $result_file
     echo -e "\n" >> $result_file
 
     echo "*** Time for solving SMT using Z3:" >> $result_file
-    z3 $bmark_dir/model-gen/$program/*.smt >> $result_file
+    z3 $bmark_dir/mod-gen/$program/*.smt >> $result_file
     echo -e "\n" >> $result_file
 
     echo -e "----------------------------\n" >> $result_file
