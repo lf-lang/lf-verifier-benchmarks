@@ -141,13 +141,19 @@ reactor Motor {
   input in_x: int32_t
   input in_y: int32_t
   input in_z: int32_t
+  state x: int32_t = 0
+  state y: int32_t = 0
+  state z: int32_t = 0
 
   state num_iter: int32_t = 0
 
   reaction(in_x, in_y, in_z) {=
-    #ifndef NDEBUG
-    lf_print("Motor received: in_x=%i in_y=%i in_z=%i", in_x->value, in_y->value, in_z->value);
-    #endif
+    self->x = in_x->value;
+    self->y = in_y->value;
+    self->z = in_z->value;
+    // #ifndef NDEBUG
+    // lf_print("Motor received: in_x=%i in_y=%i in_z=%i", in_x->value, in_y->value, in_z->value);
+    // #endif
   =}
 }
 
@@ -565,7 +571,7 @@ reactor Gyroscope(id: int32_t = 0) {
 
 @lang("c")
 // @property(name="test", tactic="bmc", spec="G[0, 10 msec](false)")
-@property(name="do_not_actuate_upon_invalid_input", tactic="bmc", spec="G[0, 5 msec](!Satellite.controller.input_valid ==> (Satellite.motor.in_x == 0 && Satellite.motor.in_y == 0 && Satellite.motor.in_z == 0))")
+@property(name="do_not_actuate_upon_invalid_input", tactic="bmc", spec="G[0, 15 msec](!Satellite.controller.input_valid ==> (Satellite.motor.x == 0 && Satellite.motor.y == 0 && Satellite.motor.z == 0))")
 main reactor {
   controller = new Controller()
   userInput = new UserInput()
