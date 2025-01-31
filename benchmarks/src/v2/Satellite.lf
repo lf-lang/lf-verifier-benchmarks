@@ -51,9 +51,14 @@ reactor Controller(
   output control_signal_y : int32_t
   output control_signal_z : int32_t
 
-  state _state_last_error_x : int32_t
-  state _state_last_error_y : int32_t
-  state _state_last_error_z : int32_t
+  state error_x : int32_t = 0
+  state error_y : int32_t = 0
+  state error_z : int32_t = 0
+  state _state_last_error_x : int32_t = 0
+  state _state_last_error_y : int32_t = 0
+  state _state_last_error_z : int32_t = 0
+  state bound : int32_t = 25722 // 2 PI
+  state input_valid : bool = false
   state _state_error_accumulated_x : int32_t
   state _state_error_accumulated_y : int32_t
   state _state_error_accumulated_z : int32_t
@@ -76,9 +81,16 @@ reactor Controller(
   =}
 
   reaction(desired_angle_x, desired_angle_y, desired_angle_z) {=
-    self->_state_desired_angle_x = desired_angle_x->value;
-    self->_state_desired_angle_y = desired_angle_y->value;
-    self->_state_desired_angle_z = desired_angle_z->value;
+    if (desired_angle_x->value < self->bound
+      && desired_angle_y->value < self->bound
+      && desired_angle_z->value < self->bound) {
+      self->input_valid = true;
+      self->_state_desired_angle_x = desired_angle_x->value;
+      self->_state_desired_angle_y = desired_angle_y->value;
+      self->_state_desired_angle_z = desired_angle_z->value;
+    } else {
+      self->input_valid = false;
+    }
     // #ifndef NDEBUG
     // lf_print("Desired angle set to %i %i %i", self->_state_desired_angle_x, self->_state_desired_angle_y, self->_state_desired_angle_z);
     // #endif
@@ -92,31 +104,31 @@ reactor Controller(
     (void)angular_velocity_x;
     (void)angular_velocity_y;
     (void)angular_velocity_z;
-    int32_t error_x;
-    int32_t error_y;
-    int32_t error_z;
 
-    error_x = (current_angle_x->value - self->_state_desired_angle_x);
-    error_y = (current_angle_y->value - self->_state_desired_angle_y);
-    error_z = (current_angle_z->value - self->_state_desired_angle_z);
+    // Check if desired x & y & z are set.
+    if (self->_state_desired_angle_x != 0 && self->_state_desired_angle_y != 0 && self->_state_desired_angle_z != 0) {
+      self->error_x = (current_angle_x->value - self->_state_desired_angle_x);
+      self->error_y = (current_angle_y->value - self->_state_desired_angle_y);
+      self->error_z = (current_angle_z->value - self->_state_desired_angle_z);
+    }
 
-    self->_state_error_accumulated_x += error_x;
-    self->_state_error_accumulated_y += error_y;
-    self->_state_error_accumulated_z += error_z;
+    self->_state_error_accumulated_x += self->error_x;
+    self->_state_error_accumulated_y += self->error_y;
+    self->_state_error_accumulated_z += self->error_z;
 
-    control_signal_x->value = (emulate_right_shift_12_bits(self->_state_Kp * error_x)) +
+    control_signal_x->value = (emulate_right_shift_12_bits(self->_state_Kp * self->error_x)) +
                   (emulate_right_shift_12_bits(self->_state_Kp * self->_state_error_accumulated_x))  // integral component
-                  + (emulate_right_shift_12_bits(self->_state_Kd * (self->_state_last_error_x - error_x)));  // differential component
-    control_signal_y->value = (emulate_right_shift_12_bits(self->_state_Kp * error_y)) +
+                  + (emulate_right_shift_12_bits(self->_state_Kd * (self->_state_last_error_x - self->error_x)));  // differential component
+    control_signal_y->value = (emulate_right_shift_12_bits(self->_state_Kp * self->error_y)) +
                   (emulate_right_shift_12_bits(self->_state_Ki * self->_state_error_accumulated_y))  // integral component
-                  + (emulate_right_shift_12_bits(self->_state_Kd * (self->_state_last_error_y - error_y)));  // differential component
-    control_signal_z->value = (emulate_right_shift_12_bits(self->_state_Kp * error_z)) +
+                  + (emulate_right_shift_12_bits(self->_state_Kd * (self->_state_last_error_y - self->error_y)));  // differential component
+    control_signal_z->value = (emulate_right_shift_12_bits(self->_state_Kp * self->error_z)) +
                   (emulate_right_shift_12_bits(self->_state_Ki * self->_state_error_accumulated_z))  // integral component
-                  + (emulate_right_shift_12_bits(self->_state_Kd * (self->_state_last_error_z - error_z)));
+                  + (emulate_right_shift_12_bits(self->_state_Kd * (self->_state_last_error_z - self->error_z)));
 
-    self->_state_last_error_x = error_x;
-    self->_state_last_error_y = error_y;
-    self->_state_last_error_z = error_z;
+    self->_state_last_error_x = self->error_x;
+    self->_state_last_error_y = self->error_y;
+    self->_state_last_error_z = self->error_z;
     
     lf_set_present(control_signal_x);
     lf_set_present(control_signal_y);
@@ -146,9 +158,12 @@ reactor UserInput {
   output desired_angle_z: int32_t
 
   reaction(startup) -> desired_angle_x, desired_angle_y, desired_angle_z {=
-    desired_angle_x->value = 4096;
-    desired_angle_y->value = 2048;
-    desired_angle_z->value = 819;
+    desired_angle_x->value = 1000000; // Invalid
+    desired_angle_y->value = 1000000; // Invalid
+    desired_angle_z->value = 1000000; // Invalid
+    // desired_angle_x->value = 4096; // Valid
+    // desired_angle_y->value = 2048; // Valid
+    // desired_angle_z->value = 819;  // Valid
     lf_set_present(desired_angle_x);
     lf_set_present(desired_angle_y);
     lf_set_present(desired_angle_z);
@@ -176,7 +191,7 @@ reactor SensorFusion {
   state _state_last_angle_x: int32_t
   state _state_last_angle_y: int32_t
   state _state_last_angle_z: int32_t
-  state _state_delta_t: uint32_t
+  state _state_delta_t: int32_t
 
   state last_gyro_x: int32_t
   state last_gyro_y: int32_t
@@ -549,7 +564,8 @@ reactor Gyroscope(id: int32_t = 0) {
 }
 
 @lang("c")
-@property(name="test", tactic="bmc", spec="G[0, 10 msec](false)")
+// @property(name="test", tactic="bmc", spec="G[0, 10 msec](false)")
+@property(name="do_not_actuate_upon_invalid_input", tactic="bmc", spec="G[0, 5 msec](!Satellite.controller.input_valid ==> (Satellite.motor.in_x == 0 && Satellite.motor.in_y == 0 && Satellite.motor.in_z == 0))")
 main reactor {
   controller = new Controller()
   userInput = new UserInput()
