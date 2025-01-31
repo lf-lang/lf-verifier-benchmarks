@@ -17,7 +17,7 @@ reactor Coordinator {
 
   reaction(ok1) -> request_review, submit {=
     if (ok1->value) {
-      self->tally += ok1->value;
+      self->tally += 1;
       if (self->tally == 3) {
           lf_schedule(submit, 0);
       }
@@ -32,7 +32,7 @@ reactor Coordinator {
 
   reaction(ok2) -> request_review, submit {=
     if (ok2->value) {
-      self->tally += ok2->value;
+      self->tally += 1;
       if (self->tally == 3) {
           lf_schedule(submit, 0);
       }
@@ -47,7 +47,7 @@ reactor Coordinator {
 
   reaction(ok3) -> request_review, submit {=
     if (ok3->value) {
-      self->tally += ok3->value;
+      self->tally += 1;
       if (self->tally == 3) {
           lf_schedule(submit, 0);
       }
