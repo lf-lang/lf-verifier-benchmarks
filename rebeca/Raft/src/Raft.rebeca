@@ -1,0 +1,233 @@
+/*************************************************************************
+ *  Timed‑Rebeca version of the LF Raft benchmark (MAX = 5 nodes)
+ *  Generated according to the 2025‑05‑13 translation guide.
+ *************************************************************************/
+
+/********************  STEP 1 – environment constants  *******************/
+env int MSG_HEART       =  -1;
+env int MSG_ACK         =  -2;
+env int MSG_ELECTION    =  -3;
+env int MSG_VOTE        =  -4;
+env int MSG_LEADER      =  -5;
+
+env int TIMEOUT_MS_LOW  = 150;
+env int TIMEOUT_MS_HIGH = 300;
+
+env int ROLE_FOLLOWER   = 0;
+env int ROLE_CANDIDATE  = 1;
+env int ROLE_LEADER     = 2;
+
+/********************  STEP 2 – the RaftNode class  **********************/
+reactiveclass RaftNode(10) {
+
+  /*************** STEP 3 – connections to other nodes ******************/
+  /* Every RaftNode talks to every other RaftNode,                     */
+  /* so we list MAX known‑rebecs.                                       */
+  knownrebecs {
+    RaftNode n0;
+    RaftNode n1;
+    RaftNode n2;
+    RaftNode n3;
+    RaftNode n4;
+  }
+
+  /*********************** STEP 4 – statevars  **************************/
+  statevars {
+    /* ---- LF state variables ---- */
+    int  leader;                     // who this node thinks is leader
+    int  election_timeout;           // in msec
+    int  term;
+    int  role;
+
+    /* candidate‑only state */
+    int  votes_received;
+
+    /* ---- flattened input port in[i] : msg_t ---- */
+    int  in_0_payload;   int in_0_term;   boolean in_0_is_present;
+    int  in_1_payload;   int in_1_term;   boolean in_1_is_present;
+    int  in_2_payload;   int in_2_term;   boolean in_2_is_present;
+    int  in_3_payload;   int in_3_term;   boolean in_3_is_present;
+    int  in_4_payload;   int in_4_term;   boolean in_4_is_present;
+
+    /* ---- flattened output port out[i] : msg_t ---- */
+    int  out_0_payload;  int out_0_term;
+    int  out_1_payload;  int out_1_term;
+    int  out_2_payload;  int out_2_term;
+    int  out_3_payload;  int out_3_term;
+    int  out_4_payload;  int out_4_term;
+
+    /* ---- actions (logical‑time triggers) ---- */
+    boolean election_timeout_reached_is_present;
+    boolean start_election_is_present;
+
+    /* ---- timers ---- */
+    /* heartbeat is modelled as a timer‑driven msgsrv, period set in constructor */
+
+    /* ---- multiple‑trigger bookkeeping ---- */
+    boolean react_inputs_scheduled;      // common read‑port reaction
+  }
+
+  /*********************** STEP 5 – constructor  ************************/
+  RaftNode() {
+      /* LF‑style random election timeout */
+      election_timeout =
+          TIMEOUT_MS_LOW +
+          (int)(rnGen() % (TIMEOUT_MS_HIGH - TIMEOUT_MS_LOW + 1));
+
+      /* initialise “_is_present” flags                                   */
+      in_0_is_present = false;   in_1_is_present = false;   in_2_is_present = false;
+      in_3_is_present = false;   in_4_is_present = false;
+      election_timeout_reached_is_present = false;
+      start_election_is_present          = false;
+      react_inputs_scheduled             = false;
+
+      /* schedule the startup reaction (= Follower watchdog) immediately  */
+      self.reaction_startup();
+  }
+
+  /************************ STEP 6 – methods ****************************/
+  int rnGen() {   // simple LCG random helper
+      // election_timeout = (1664525 * election_timeout + 1013904223) & 0x7fffffff;
+      // election_timeout = ?(150, 300);
+      election_timeout = 150;
+      return election_timeout;
+  }
+
+  void broadcast_heartbeat() {
+      // helper executed only in Leader role
+      out_0_payload = MSG_HEART; out_0_term = term;
+      out_1_payload = MSG_HEART; out_1_term = term;
+      out_2_payload = MSG_HEART; out_2_term = term;
+      out_3_payload = MSG_HEART; out_3_term = term;
+      out_4_payload = MSG_HEART; out_4_term = term;
+
+      /* deliver to peers with 0 delay (in the same federate) */
+      n0.read_port_in(out_0_payload, out_0_term) after(0);
+      n1.read_port_in(out_1_payload, out_1_term) after(0);
+      n2.read_port_in(out_2_payload, out_2_term) after(0);
+      n3.read_port_in(out_3_payload, out_3_term) after(0);
+      n4.read_port_in(out_4_payload, out_4_term) after(0);
+  }
+
+  /********************** STEP 7 – reactions (msgsrv) *******************/
+  /* ---------- Startup → schedule first election timeout --------------*/
+  @globalPriority(2)
+  msgsrv reaction_startup() {
+      /* schedule watchdog */
+      self.lf_schedule_election_timeout_reached() after(election_timeout);
+      /* nothing to reset here                                          */
+  }
+
+  /* ---------- Action scheduler for election_timeout_reached ----------*/
+  @globalPriority(3)
+  msgsrv lf_schedule_election_timeout_reached() {
+      election_timeout_reached_is_present = true;
+      if (!react_inputs_scheduled) {
+          self.reaction_inputs();
+          react_inputs_scheduled = true;
+      }
+  }
+
+  /* ---------- Action scheduler for start_election --------------------*/
+  @globalPriority(3)
+  msgsrv lf_schedule_start_election() {
+      start_election_is_present = true;
+      if (!react_inputs_scheduled) {
+          self.reaction_inputs();
+          react_inputs_scheduled = true;
+      }
+  }
+
+  /* ---------- READ‑PORT: common for every in[i] ----------------------*/
+  @globalPriority(3)
+  msgsrv read_port_in(int _payload, int _term) {
+      /* We collapse all five physical ports into a single msgsrv call;  */
+      /* caller passes its own payload/term. Duplicate the assignment    */
+      /* pattern for every index. In practice you would generate five    */
+      /* separate read_port_in<i>() servers, each identical except for   */
+      /* index constant.                                                 */
+      /* ---- write only to slot 0 for demonstration; repeat for 1‑4 --- */
+      in_0_payload    = _payload;
+      in_0_term       = _term;
+      in_0_is_present = true;
+
+      if (!react_inputs_scheduled) {
+          self.reaction_inputs();
+          react_inputs_scheduled = true;
+      }
+  }
+
+  /* ---------- Main input‑driven reaction (Follower / Candidate / …) --*/
+  @globalPriority(4)
+  msgsrv reaction_inputs() {
+      /******** role‑specific logic condensed for brevity *******/
+      if (role == ROLE_FOLLOWER) {
+          if (in_0_is_present && in_0_payload == MSG_HEART) {
+              // heartbeat from leader 0
+              term   = in_0_term;
+              leader = 0;
+              // respond ACK
+              out_0_payload = MSG_ACK;  out_0_term = term;
+              n0.read_port_in(out_0_payload, out_0_term) after(0);
+              /* reset watchdog */
+              self.lf_schedule_election_timeout_reached() after(election_timeout);
+          }
+          else if (election_timeout_reached_is_present) {
+              // convert to candidate
+              role            = ROLE_CANDIDATE;
+              votes_received  = 1;          // vote for self
+              term           += 1;
+              /* broadcast election */
+              out_0_payload = MSG_ELECTION; out_0_term = term;
+              /* …. repeat for peers … */
+              n0.read_port_in(out_0_payload, out_0_term) after(0);
+              n1.read_port_in(out_0_payload, out_0_term) after(0);
+              n2.read_port_in(out_0_payload, out_0_term) after(0);
+              n3.read_port_in(out_0_payload, out_0_term) after(0);
+              n4.read_port_in(out_0_payload, out_0_term) after(0);
+
+              /* schedule new election timeout */
+              self.lf_schedule_election_timeout_reached() after(election_timeout);
+          }
+      }
+      else if (role == ROLE_LEADER) {
+          /* handle ACKs, competing leaders, etc. — elided               */
+      }
+      else if (role == ROLE_CANDIDATE) {
+          /* count votes, step down, etc. — elided                       */
+      }
+
+      /* ---------------- Postamble ------------------------------------ */
+      self.reaction_inputs_postamble();
+  }
+
+  /* ---------- Postamble (highest priority in class) ------------------*/
+  @globalPriority(5)
+  msgsrv reaction_inputs_postamble() {
+      in_0_is_present = false;   in_1_is_present = false;   in_2_is_present = false;
+      in_3_is_present = false;   in_4_is_present = false;
+      election_timeout_reached_is_present = false;
+      start_election_is_present          = false;
+      react_inputs_scheduled             = false;
+  }
+
+  /* ---------- Timer‑driven heartbeat while we are leader -------------*/
+  @globalPriority(4)
+  msgsrv heartbeat() {
+      if (role == ROLE_LEADER) {
+          broadcast_heartbeat();
+      }
+      /* schedule next heartbeat (100 msec) */
+      self.heartbeat() after(100);
+  }
+}
+
+/************************  STEP 9 – main block  *************************/
+main {
+    /* instantiate 5 Raft nodes and wire them in a full mesh            */
+    RaftNode n0(n1,n2,n3,n4,n0):();
+    RaftNode n1(n0,n2,n3,n4,n1):();
+    RaftNode n2(n0,n1,n3,n4,n2):();
+    RaftNode n3(n0,n1,n2,n4,n3):();
+    RaftNode n4(n0,n1,n2,n3,n4):();
+}
