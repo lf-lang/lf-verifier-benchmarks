@@ -5,3 +5,6 @@
 /results
 
 **/.DS_Store
+
+*.dot
+*.statespace
