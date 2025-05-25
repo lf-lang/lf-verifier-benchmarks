@@ -116,11 +116,12 @@ reactiveclass RaftNode(10) {
     	
     	self.randomize_latencies();
     	
-    	n0.read_port_in(bank_index, type, term) after(latencies[0]);
-    	n1.read_port_in(bank_index, type, term) after(latencies[1]);
-    	n2.read_port_in(bank_index, type, term) after(latencies[2]);
-    	n3.read_port_in(bank_index, type, term) after(latencies[3]);
-    	n4.read_port_in(bank_index, type, term) after(latencies[4]);
+    	// FIXME: Does this support overwrite semantics? Not important for this application.
+    	n0.read_port_in(bank_index, out_type_value[0], term) after(latencies[0]);
+    	n1.read_port_in(bank_index, out_type_value[0], term) after(latencies[1]);
+    	n2.read_port_in(bank_index, out_type_value[0], term) after(latencies[2]);
+    	n3.read_port_in(bank_index, out_type_value[0], term) after(latencies[3]);
+    	n4.read_port_in(bank_index, out_type_value[0], term) after(latencies[4]);
     }
 
 	// Check if the action is updated. If so, cancel the current one.
@@ -172,7 +173,13 @@ reactiveclass RaftNode(10) {
         self.lf_schedule_election_timeout_reached() after(election_timeout);
     }
     
-    msgsrv reaction_3() {}
+    msgsrv reaction_3() {
+    	for (int _sender = 0; _sender < NUM_NODES; _sender++) {
+    		int incoming_type = in_type[_sender];
+    		int incoming_term = in_term[_sender];
+    		// FIXME: Finish.
+    	}
+    }
     
     msgsrv reaction_4() {
 	    // In Rebeca, mode transition needs to happen before lf_schedule,
@@ -181,7 +188,11 @@ reactiveclass RaftNode(10) {
 		self.lf_schedule_start_election() after(0);
     }
     
-    msgsrv reaction_5() {}
+    // The leader periodically sends out a heartbeat message to all
+    // follower nodes to maintain authority.
+    msgsrv reaction_5() {
+    	self.broadcast_message(MSG_HEART);
+    }
     
     msgsrv reaction_6() {}
     
@@ -202,7 +213,11 @@ reactiveclass RaftNode(10) {
     
     msgsrv reaction_8() {}
     
-    msgsrv reaction_9() {}
+    // If timeout is reached and no leader has been declared, then
+    // we do not have a winner. Restart the election.
+    msgsrv reaction_9() {
+    	self.lf_schedule_start_election() after(0);
+    }
 
     // Postamble
     msgsrv reaction_inputs_postamble() {
@@ -214,7 +229,6 @@ reactiveclass RaftNode(10) {
 }
 
 main {
-    /* instantiate 5 Raft nodes and wire them in a full mesh            */
     RaftNode n0(n1,n2,n3,n4,n0):(0);
     RaftNode n1(n0,n2,n3,n4,n1):(1);
     RaftNode n2(n0,n1,n3,n4,n2):(2);
