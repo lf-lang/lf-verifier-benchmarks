@@ -15,6 +15,8 @@ env int FOLLOWER   		= 0;
 env int CANDIDATE  		= 1;
 env int LEADER     		= 2;
 
+env int NUM_NODES		= 5;
+
 reactiveclass RaftNode(10) {
 
     knownrebecs {
@@ -26,27 +28,23 @@ reactiveclass RaftNode(10) {
     }
 
     statevars {
+        int bank_index;			// ID of this node
         int leader;				// who this node thinks is leader
         int election_timeout;	// in msec
         int term;
         int voted_for;
         int mode;				// FOLLOWER, LEADER, CANDIDATE
-
         int votes_received;
 
-        /* ---- flattened input port in[i] : msg_t ---- */
-        int  in_0_payload;   int in_0_term;   boolean in_0_is_present;
-        int  in_1_payload;   int in_1_term;   boolean in_1_is_present;
-        int  in_2_payload;   int in_2_term;   boolean in_2_is_present;
-        int  in_3_payload;   int in_3_term;   boolean in_3_is_present;
-        int  in_4_payload;   int in_4_term;   boolean in_4_is_present;
-
-        /* ---- flattened output port out[i] : msg_t ---- */
-        int  out_0_payload;  int out_0_term;
-        int  out_1_payload;  int out_1_term;
-        int  out_2_payload;  int out_2_term;
-        int  out_3_payload;  int out_3_term;
-        int  out_4_payload;  int out_4_term;
+        int[5] in_type;
+        int[5] in_term;
+        boolean[5] in_is_present;
+        
+        int[5] out_type_value;
+        int[5] out_term_value;
+        
+        // Scientific modeling of communication latencies
+        int[5] latencies;
 
         /* ---- actions (logical‑time triggers) ---- */
         boolean election_timeout_reached_is_present;
@@ -56,10 +54,6 @@ reactiveclass RaftNode(10) {
         // In this case, an action only triggers a reaction when there are no other
         // such action scheduled in Rebeca's queue, i.e., this variable = 0.
         int election_timeout_reached_pending_count;
-        
-
-        /* ---- timers ---- */
-        /* heartbeat is modelled as a timer‑driven msgsrv, period set in constructor */
 
         /* ---- multiple‑trigger bookkeeping ---- */
         boolean scheduled_reaction_1;
@@ -74,13 +68,12 @@ reactiveclass RaftNode(10) {
     }
 
     RaftNode(int id) {
+    	bank_index = id; // Remember the node's own ID.
     
         /* initialise “_is_present” flags */
-        in_0_is_present = false;
-        in_1_is_present = false;
-        in_2_is_present = false;
-        in_3_is_present = false;
-        in_4_is_present = false;
+        for (int i = 0; i < NUM_NODES; i++) {
+        	in_is_present[i] = false;
+        }
         
         election_timeout_reached_is_present = false;
         start_election_is_present           = false;
@@ -101,20 +94,34 @@ reactiveclass RaftNode(10) {
         self.reaction_2();
     }
     
-    // simple LCG random helper
     // FIXME: Non-det. choices do not work in methods.
-    /*
-    int rnGen() {
-        election_timeout = (1664525 * election_timeout + 1013904223) & 0x7fffffff;
-        election_timeout = ?(150, 300);
-        return election_timeout;
-    }
-    */
-
-    msgsrv random_int_in_range() {
+    msgsrv randomize_election_timeout() {
         election_timeout = ?(150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300);
     }
-  
+    
+    // SCIENTIFIC MODELING of communication latencies
+    // Each element is the latency between the current node and a destination node.
+    msgsrv randomize_latencies() {
+    	for (int i = 0; i < NUM_NODES; i++) {
+    		latencies[i] = ?(150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300);
+    	}
+    }
+    
+    msgsrv broadcast_message(int type) {
+    
+    	for (int i = 0; i < NUM_NODES; i++) {
+    		out_type_value[i] = type;
+    		out_term_value[i] = term;
+    	}
+    	
+    	self.randomize_latencies();
+    	
+    	n0.read_port_in(bank_index, type, term) after(latencies[0]);
+    	n1.read_port_in(bank_index, type, term) after(latencies[1]);
+    	n2.read_port_in(bank_index, type, term) after(latencies[2]);
+    	n3.read_port_in(bank_index, type, term) after(latencies[3]);
+    	n4.read_port_in(bank_index, type, term) after(latencies[4]);
+    }
 
 	// Check if the action is updated. If so, cancel the current one.
     msgsrv lf_schedule_election_timeout_reached() {
@@ -136,16 +143,16 @@ reactiveclass RaftNode(10) {
 
     msgsrv lf_schedule_start_election() {
         start_election_is_present = true;
-        // TODO: Schedule a reaction based on mode.
-        if (!scheduled_reaction_1) {
-            scheduled_reaction_1 = true;
+        if (mode == CANDIDATE) {
+        	self.reaction_7();
         }
     }
 
-    msgsrv read_port_in0(int _payload, int _term) {
-        in_0_payload    = _payload;
-        in_0_term       = _term;
-        in_0_is_present = true;
+	// A parameterized read_port msgsrv for multiports
+    msgsrv read_port_in(int chan, int _type, int _term) {
+        in_type[chan]    	= _type;
+        in_term[chan]       = _term;
+        in_is_present[chan] = true;
 
 		// TODO: Schedule a reaction based on mode.
         if (!scheduled_reaction_1) {
@@ -157,7 +164,7 @@ reactiveclass RaftNode(10) {
     
     msgsrv reaction_2() {
     	// Select election timeout
-        self.random_int_in_range();
+        self.randomize_election_timeout();
         
         // Track the number of lf_schedule_election_timeout_reached msgsrv enqueued.
         election_timeout_reached_pending_count++;
@@ -167,84 +174,45 @@ reactiveclass RaftNode(10) {
     
     msgsrv reaction_3() {}
     
-    msgsrv reaction_4() {}
+    msgsrv reaction_4() {
+	    // In Rebeca, mode transition needs to happen before lf_schedule,
+	    // so that reaction triggering works properly.
+		mode = CANDIDATE;
+		self.lf_schedule_start_election() after(0);
+    }
     
     msgsrv reaction_5() {}
     
     msgsrv reaction_6() {}
     
-    msgsrv reaction_7() {}
+    msgsrv reaction_7() {
+    	// Increment its term id.
+    	term++;
+    	// Reset the vote count to 0.
+    	// NOTE: This was a real bug, which could be a good test case for model checking.
+    	votes_received = 0;
+    	// Vote for itself.
+    	voted_for = bank_index;
+    	votes_received++;
+    	// Broadcast an election start message.
+    	self.broadcast_message(MSG_ELECTION);
+    	// Schedule a timeout action to collect votes.
+    	self.lf_schedule_election_timeout_reached() after(election_timeout);
+    }
     
     msgsrv reaction_8() {}
     
     msgsrv reaction_9() {}
 
-    /* ---------- TO DEPRECATE: Main input‑driven reaction (Follower / Candidate / …) --*/
-    /*
-    @globalPriority(4)
-    msgsrv reaction_inputs() {
-        if (role == ROLE_FOLLOWER) {
-            if (in_0_is_present && in_0_payload == MSG_HEART) {
-                // heartbeat from leader 0
-                term   = in_0_term;
-                leader = 0;
-                // respond ACK
-                out_0_payload = MSG_ACK;  out_0_term = term;
-                n0.read_port_in(out_0_payload, out_0_term) after(0);
-                self.lf_schedule_election_timeout_reached() after(election_timeout);
-            }
-            else if (election_timeout_reached_is_present) {
-                // convert to candidate
-                role            = ROLE_CANDIDATE;
-                votes_received  = 1;          // vote for self
-                term           += 1;
-                // broadcast election
-                out_0_payload = MSG_ELECTION; out_0_term = term;
-                // … repeat for peers
-                n0.read_port_in(out_0_payload, out_0_term) after(0);
-                n1.read_port_in(out_0_payload, out_0_term) after(0);
-                n2.read_port_in(out_0_payload, out_0_term) after(0);
-                n3.read_port_in(out_0_payload, out_0_term) after(0);
-                n4.read_port_in(out_0_payload, out_0_term) after(0);
-
-                // schedule new election timeout
-                self.lf_schedule_election_timeout_reached() after(election_timeout);
-            }
-        }
-        else if (role == ROLE_LEADER) {
-            // handle ACKs, competing leaders, etc. — elided
-        }
-        else if (role == ROLE_CANDIDATE) {
-            // count votes, step down, etc. — elided
-        }
-
-        self.reaction_inputs_postamble();
-    }
-    */
-
-    /* ---------- Postamble (highest priority in class) ------------------*/
-    @globalPriority(5)
+    // Postamble
     msgsrv reaction_inputs_postamble() {
-        in_0_is_present = false;   in_1_is_present = false;   in_2_is_present = false;
-        in_3_is_present = false;   in_4_is_present = false;
+        // TODO: Set input_is_present to false.
         election_timeout_reached_is_present = false;
         start_election_is_present          = false;
         scheduled_reaction_1             = false;
     }
-
-    /* ---------- Timer‑driven heartbeat while we are leader -------------*/
-    /*
-    @globalPriority(4)
-    msgsrv heartbeat() {
-        if (role == ROLE_LEADER) {
-            broadcast_heartbeat();
-        }
-        self.heartbeat() after(100);
-    }
-    */
 }
 
-/************************  STEP 9 – main block  *************************/
 main {
     /* instantiate 5 Raft nodes and wire them in a full mesh            */
     RaftNode n0(n1,n2,n3,n4,n0):(0);
