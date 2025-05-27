@@ -107,6 +107,26 @@ reactiveclass RaftNode(10) {
     	}
     }
     
+    msgsrv send_message(int dest, int type) {
+    
+    	out_type_value[dest] = type;
+    	out_term_value[dest] = term;
+    	
+    	self.randomize_latencies();
+    	
+    	if (dest == 0) {
+    		n0.read_port_in(bank_index, out_type_value[0], term) after(latencies[0]);
+    	} else if (dest == 1) {
+    		n1.read_port_in(bank_index, out_type_value[0], term) after(latencies[1]);
+    	} else if (dest == 2) {
+    		n2.read_port_in(bank_index, out_type_value[0], term) after(latencies[2]);
+    	} else if (dest == 3) {
+    		n3.read_port_in(bank_index, out_type_value[0], term) after(latencies[3]);
+    	} else {
+    		n4.read_port_in(bank_index, out_type_value[0], term) after(latencies[4]);
+    	}
+    }
+    
     msgsrv broadcast_message(int type) {
     
     	for (int i = 0; i < NUM_NODES; i++) {
@@ -177,7 +197,48 @@ reactiveclass RaftNode(10) {
     	for (int _sender = 0; _sender < NUM_NODES; _sender++) {
     		int incoming_type = in_type[_sender];
     		int incoming_term = in_term[_sender];
-    		// FIXME: Finish.
+    		if (in_is_present[_sender] && _sender != bank_index) {
+    			if (_sender == leader
+              		&& incoming_type == MSG_HEART) {
+              		// Make sure its term is the same as the leader's term.
+              		term = incoming_term;
+              		// Send back an ack.
+              		send_message(_sender, MSG_ACK);
+              		// Renew the pending timeout action's expiry time.
+            		self.lf_schedule_election_timeout_reached() after(election_timeout);
+              	}
+              	else if (incoming_type == MSG_ELECTION) {
+              		// Prepare to vote in the new term.
+              		// Ignore if the incoming term is smaller than the current term.
+              		if (incoming_term > term) {
+                		term = incoming_term;
+                		voted_for = -1;
+              		}
+              		// If it has not voted for this incoming term, send back a vote.
+	              	// If the sender asks again because the pervious vote message is lost,
+	              	// send back another message.
+	              	if (incoming_term == term &&
+	                	(voted_for == -1 || voted_for == _sender)) {
+	                	voted_for = _sender;
+	                	send_message(_sender, MSG_VOTE);
+	                	// Renew the pending timeout action's expiry time.
+	                	self.lf_schedule_election_timeout_reached() after(election_timeout);
+	              	}
+              	}
+              	else if (_sender != leader
+                	&& (incoming_type == MSG_LEADER || incoming_type == MSG_HEART)
+                	&& incoming_term >= term   // Only accept a new leader if its term is greater or equal.
+          		) {
+          			// A new leader has been declared.
+              		leader = _sender;
+              		// Update its term to the leader's term.
+              		term = incoming_term;
+              		// Send back an ack.
+              		send_message(_sender, MSG_ACK);
+              		// Renew the pending timeout action's expiry time.
+              		self.lf_schedule_election_timeout_reached() after(election_timeout);
+          		}
+    		}
     	}
     }
     
@@ -194,7 +255,34 @@ reactiveclass RaftNode(10) {
     	self.broadcast_message(MSG_HEART);
     }
     
-    msgsrv reaction_6() {}
+    msgsrv reaction_6() {
+    	// Receive acks from followers.
+    	for (int _sender = 0; _sender < NUM_NODES; _sender++) {
+    		int incoming_type = in_type[_sender];
+    		int incoming_term = in_term[_sender];
+    		if (in_is_present[_sender] && _sender != bank_index) {
+    			if (incoming_type == MSG_HEART) {
+            		// Compare the term id, if they are equal, compare bank_index.
+            		if (incoming_term > term
+              			|| (incoming_term == term && _sender > bank_index)) {
+              			// Another node has declared itself to be the leader.
+              			leader = _sender;
+              			// Send back an ack.
+              			send_message(_sender, MSG_ACK);
+              			// Update its term to the leader's term.
+              			term = incoming_term;
+              			// Renew the pending timeout action's expiry time.
+              			self.lf_schedule_election_timeout_reached() after(election_timeout);
+              			// Become a follower.
+              			mode = FOLLOWER;
+            		}
+          		}
+          		else if (incoming_type == MSG_ACK) {
+          			// Do nothing
+          		}
+    		}
+    	}
+    }
     
     msgsrv reaction_7() {
     	// Increment its term id.
@@ -211,7 +299,65 @@ reactiveclass RaftNode(10) {
     	self.lf_schedule_election_timeout_reached() after(election_timeout);
     }
     
-    msgsrv reaction_8() {}
+    msgsrv reaction_8() {
+    	// Receive votes from followers.
+    	for (int _sender = 0; _sender < NUM_NODES; _sender++) {
+    		int incoming_type = in_type[_sender];
+    		int incoming_term = in_term[_sender];
+    		if (in_is_present[_sender] && _sender != bank_index) {
+    			if (incoming_type == MSG_VOTE
+            		&& incoming_term == term) {
+            		votes_received++;
+            		// Check if a majority of votes is received, if so,
+            		// declare to be the leader.
+            		if (votes_received > NUM_NODES / 2) {
+            			// Broadcast a leader message to all nodes.
+            			broadcast_message(MSG_LEADER);
+            		}
+            		// Mark itself as the leader.
+              		leader = bank_index;
+              		// Transition to leader mode.
+              		mode = LEADER;
+            	}
+            	else if (incoming_type == MSG_LEADER
+              		|| incoming_type == MSG_HEART) {
+              		// Compare the term id, if they are equal, compare bank_index.
+              		if (incoming_term > term
+              			|| (incoming_term == term && _sender > bank_index)) {
+              			// Another node has declared itself to be the leader.
+		              	leader = _sender;
+		              	// Send back an ack.
+		              	send_message(_sender, MSG_ACK);
+		              	// Update its term to the leader's term.
+		              	term = incoming_term;
+		              	// Renew the pending timeout action's expiry time.
+		              	self.lf_schedule_election_timeout_reached() after(election_timeout);
+		              	// Become a follower.
+		              	mode = FOLLOWER;
+              		}
+              	}
+              	else if (incoming_type == MSG_ELECTION) {
+            		// Prepare to vote in the new term.
+            		// Ignore if the incoming term is smaller than the current term.
+            		if (incoming_term > term) {
+              			term = incoming_term;
+              			voted_for = -1;
+              			mode = FOLLOWER;
+            		}
+            		// If it has not voted for this incoming term, send back a vote.
+            		// If the sender asks again because the pervious vote message is lost,
+            		// send back another message.
+            		if (incoming_term == term &&
+              			(voted_for == -1 || voted_for == _sender)) {
+              			voted_for = _sender;
+              			send_message(_sender, MSG_VOTE);
+              			// Renew the pending timeout action's expiry time.
+              			self.lf_schedule_election_timeout_reached() after(election_timeout);
+            		}
+          		}
+    		}
+    	}
+    }
     
     // If timeout is reached and no leader has been declared, then
     // we do not have a winner. Restart the election.
@@ -223,8 +369,8 @@ reactiveclass RaftNode(10) {
     msgsrv reaction_inputs_postamble() {
         // TODO: Set input_is_present to false.
         election_timeout_reached_is_present = false;
-        start_election_is_present          = false;
-        scheduled_reaction_1             = false;
+        start_election_is_present          	= false;
+        scheduled_reaction_1             	= false;
     }
 }
 
