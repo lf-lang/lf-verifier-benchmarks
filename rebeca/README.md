@@ -2,9 +2,37 @@
 
 ## Converting LF to Timed Rebeca
 
-We use `Railroad.lf` for example.
+We use snippets from `Railroad.lf` and `Raft.lf` as examples.
 
-### Step 1: Create a `reactiveclass` for each reactor. Set the default buffer size to 10.
+### Step 1: Create a Rebeca environment variable for each `#define` in LF preamble
+
+For example,
+```
+preamble {=
+  #define MSG_HEART       -1
+  #define MSG_ACK         -2
+  #define MSG_ELECTION    -3
+  #define MSG_VOTE        -4
+  #define MSG_LEADER      -5
+
+  #define TIMEOUT_MS_LOW  150
+  #define TIMEOUT_MS_HIGH 300
+=}
+```
+becomes 
+```
+env int MSG_HEART       = -1;
+env int MSG_ACK         = -2;
+env int MSG_ELECTION    = -3;
+env int MSG_VOTE        = -4;
+env int MSG_LEADER      = -5;
+
+env int TIMEOUT_MS_LOW  = 150;
+env int TIMEOUT_MS_HIGH = 300;
+```
+Environment variables must live outside of `reactiveclass`.
+
+### Step 2: Create a `reactiveclass` for each reactor. Set the default buffer size to 10.
 
 For example, `reactor Train {...}` becomes 
 ```
@@ -13,10 +41,10 @@ reactiveclass Train(10) {
 }
 ```
 
-### Step 2: If the reactor has output ports that connects to some downstream reactors.
-   Declare the class type of the downstream reactor in `knownrebecs`. This assumes
-   that each output port of the upstream reactor only connects to one class type
-   of downstream reactor.
+### Step 3: If the reactor has output ports that connects to some downstream reactors.
+Declare the class type of the downstream reactor in `knownrebecs`. This assumes
+that each output port of the upstream reactor only connects to one class type
+of downstream reactor.
    
 For example, the `Train` reactor connects to `Controller`. Thus in `Train`'s
 `reactiveclass` we have
@@ -27,7 +55,7 @@ For example, the `Train` reactor connects to `Controller`. Thus in `Train`'s
     }
 ```
 
-### Step 3: Encode LF's state variables, ports, and actions in Rebeca's `statevars` block.
+### Step 4: Encode LF's state variables, ports, and actions in Rebeca's `statevars` block.
 
 For example, the `Train` reactor has two state variables. Reproduce them
 verbatim here. 
@@ -66,7 +94,41 @@ Here is a concrete example of the `Train` reactor:
     }
 ```
 
-### Step 4: In the constructor, initialize the state variables (if specified in the LF program) and schedule reactions triggered by `startup` and timers.
+If there are variables of C structs (defined in a preamble), flatten the struct by
+explicitly declaring the struct members and Rebeca variables. For example,
+```LF
+preamble {=
+  typedef struct msg_t {
+      int payload;
+      int term;
+  } msg_t;
+=}
+
+...
+
+reactor RaftNode {
+    input[num_nodes] in: msg_t
+}
+```
+This becomes
+```rebeca
+reactiveclass RaftNode(10) {
+    statevars {
+        int in_0_payload;
+        int in_0_term;
+        int in_1_payload;
+        int in_1_term;
+        int in_2_payload;
+        int in_2_term;
+        ...
+        int in_{num_nodes}_payload;
+        int in_{num_nodes}_term;
+    }
+}
+```
+These state variables all need to be initiated in the constructor.
+
+### Step 5: In the constructor, initialize the state variables (if specified in the LF program) and schedule reactions triggered by `startup` and timers.
 
 In the LF program, state variables are given initial values.
 ```
@@ -106,13 +168,23 @@ to `false` in the constructor.
     }
 ```
 
-### Step 5: Encode reactions.
+### Step 6: Encode methods.
 
-For each reaction, create a `msgsrv`.
+For each LF method, create a local method in Rebeca. For example,
+here is an LF method.
+```LF
+method max(i: int, j: int): int {=
+    if (i > j) return i;
+    else return j;
+=}
 ```
-    msgsrv <reaction_name>() {
-        ...
-    }
+
+In Rebeca,
+```rebeca
+int max(int i, int j) {
+    if (i > j) return i;
+    else return j;
+}
 ```
 
 For each statement and expression in C, use the following table for conversion.
@@ -126,13 +198,24 @@ For each statement and expression in C, use the following table for conversion.
 | Setting a port | `lf_set(<upstream_output_port>, <value>);` | `<upstream_output_port>_value = <value>;` Then for each downstream reaction triggered, insert `<downstream_reactor_instance_name>.read_port_<downstream_input_port>(<upstream_output_port>_value) after (after_delay_along_connection);` |
 | Scheduling an action | `lf_schedule(<action>, <additional_delay>);` | `self.lf_schedule_<action>() after(<min_delay> + <additional_delay>);` |
 
+### Step 7: Encode reactions.
+
+For each reaction, create a `msgsrv`.
+```
+    msgsrv <reaction_name>() {
+        ...
+    }
+```
+
 At the end of each reaction `msgsrv`, a postamble is needed based on the
 following conditions.
 
 | Condition | Postamble | Rebeca | 
 | :---------------- | :------ | :------ |
 | The reaction is timer-driven. | Schedule the next timer-driven invocation. | `self.<reaction_name>() after(<timer_period>);` |
-| The reaction is triggered by inputs or actions. | Schedule a postamble msgsrv. | `self.<reaction_name>_postamble();` |
+| The reaction is triggered by inputs or actions. | Schedule a postamble msgsrv. If the reaction has a `_scheduled` variable, it also needs to be set to `false` before calling the postamble. | `<reaction_name>_scheduled = false;` `self.<reaction_name>_postamble();` |
+
+The reason why `<reaction_name>_scheduled = false;` is called inside the reaction body is that the postamble has the largest `@globalPriority`. If `<reaction_name>_scheduled = false;` is inside the postamble, then `<reaction_name>_scheduled` might remain `true` for a falsely long time, preventing other correct instances of `<reaction_name>` from being scheduled. (A concrete example is reaction 3 in `Raft.lf`. It needs to be scheduled in time to renew the election timeout.)
 
 Then, assign a `@globalPriority(x)` to the message server with `x` being _twice_ the
 "level" of the message server in the Rebeca program and accounting for the
@@ -170,6 +253,8 @@ In Rebeca, this becomes:
             _out = 1;
             self.lf_schedule_outUpdated(0) after(0+0);
         }
+        // First set _scheduled varibale to false
+        reaction_2_scheduled = false;
         // Postamble: schedule the next timer-driven invocation.
         self.reaction_2() after(1000000000);
         // This reaction is not triggered by input ports or actions. But if it is, use the following line.
@@ -177,18 +262,17 @@ In Rebeca, this becomes:
     }
 ```
 
-### Step 6: Create auxiliary message servers.
+### Step 8: Create auxiliary message servers.
 
 #### Reaction postamble
 
 Each reaction needs to have a postamble `msgsrv` for resetting
 variables in the Rebeca encoding. Inside the `msgsrv`, the `_is_present`
 fields of input ports and actions triggering the reaction needs to be
-set to `false`. In addition, if the reaction has a `_scheduled`
-variable, it also needs to be set to `false`.
+set to `false`.
 
 The postamble `msgsrv` must have a higher `@globalPriority` than all reactions in
-the same reactiveclass.
+the same reactiveclass, so that all concurrent reactions can finish firing before resetting triggers.
 
 Here is an example from the `Sink` reactor in `TrainDoorFeedback`.
 ```
@@ -197,7 +281,6 @@ msgsrv reaction_1_postamble() {
     in1_is_present = false;
     in2_is_present = false;
     in3_is_present = false;
-    reaction_1_scheduled = false;
 }
 ```
 
@@ -216,6 +299,47 @@ following code:
     }
 ```
 A `lf_schedule_` message server should carry a `@globalPriority` of the global priority of the reaction triggered by the action - 1.
+
+#### Actions with `forever` minimum spacing and `update` policy
+
+When an action has a minimum spacing of `forever` and a policy of `update`,
+and the action is scheduled multiple times, the earlier instances of the action
+must be dropped. Only the latest action instance is kept. To model this in Rebeca,
+a `_pending_count` variable is introduced. When the action is scheduled
+in a reaction, the count is incremented. When the `lf_schedule` message server
+executes, decrement the count and check if the count equals 0. Only further
+trigger reaction message servers when the count equals 0.
+
+An example can be found in `Raft.lf` with an `election_timeout_reached` action.
+When the action is scheduled, increment the count.
+```
+msgsrv reaction_2() {
+    // Select election timeout
+    self.random_int_in_range();
+    
+    // Track the number of lf_schedule_election_timeout_reached msgsrv enqueued.
+    election_timeout_reached_pending_count++;
+    // Schedule lf_schedule_election_timeout_reached.
+    self.lf_schedule_election_timeout_reached() after(election_timeout);
+}
+```
+
+When the `lf_schedule` message server executes, decrement the count and check
+if it equals 0.
+```
+// Check if the action is updated. If so, cancel the current one.
+msgsrv lf_schedule_election_timeout_reached() {
+    // Since this msgsrv is triggered, decrement the count.
+    election_timeout_reached_pending_count--;
+    // Check if any is still pending, if so, don't do anything,
+    // i.e., canceling the stale event. Only trigger reactions
+    // when there are no actions pending. 
+    if (election_timeout_reached_pending_count == 0) {
+        election_timeout_reached_is_present = true;
+        // ... Trigger a reaction based on mode ...
+    }
+}
+```
 
 #### Reading input ports
 
@@ -267,7 +391,7 @@ msgsrv read_port_in1(int _in1_value) {
 }
 ```
 
-### Step 7: In the `main` block, instantiate each `reactiveclass` based on the main reactor.
+### Step 9: In the `main` block, instantiate each `reactiveclass` based on the main reactor.
 
 For each reactor instance in LF's main reactor, instantiate the corresponding `reactiveclass` and put downstream reactor instances' names in the second
 parantheses.
