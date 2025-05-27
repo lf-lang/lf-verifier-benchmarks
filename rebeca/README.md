@@ -213,7 +213,9 @@ following conditions.
 | Condition | Postamble | Rebeca | 
 | :---------------- | :------ | :------ |
 | The reaction is timer-driven. | Schedule the next timer-driven invocation. | `self.<reaction_name>() after(<timer_period>);` |
-| The reaction is triggered by inputs or actions. | Schedule a postamble msgsrv. | `self.<reaction_name>_postamble();` |
+| The reaction is triggered by inputs or actions. | Schedule a postamble msgsrv. If the reaction has a `_scheduled` variable, it also needs to be set to `false` before calling the postamble. | `<reaction_name>_scheduled = false;` `self.<reaction_name>_postamble();` |
+
+The reason why `<reaction_name>_scheduled = false;` is called inside the reaction body is that the postamble has the largest `@globalPriority`. If `<reaction_name>_scheduled = false;` is inside the postamble, then `<reaction_name>_scheduled` might remain `true` for a falsely long time, preventing other correct instances of `<reaction_name>` from being scheduled. (A concrete example is reaction 3 in `Raft.lf`. It needs to be scheduled in time to renew the election timeout.)
 
 Then, assign a `@globalPriority(x)` to the message server with `x` being _twice_ the
 "level" of the message server in the Rebeca program and accounting for the
@@ -251,6 +253,8 @@ In Rebeca, this becomes:
             _out = 1;
             self.lf_schedule_outUpdated(0) after(0+0);
         }
+        // First set _scheduled varibale to false
+        reaction_2_scheduled = false;
         // Postamble: schedule the next timer-driven invocation.
         self.reaction_2() after(1000000000);
         // This reaction is not triggered by input ports or actions. But if it is, use the following line.
@@ -265,8 +269,7 @@ In Rebeca, this becomes:
 Each reaction needs to have a postamble `msgsrv` for resetting
 variables in the Rebeca encoding. Inside the `msgsrv`, the `_is_present`
 fields of input ports and actions triggering the reaction needs to be
-set to `false`. In addition, if the reaction has a `_scheduled`
-variable, it also needs to be set to `false`.
+set to `false`.
 
 The postamble `msgsrv` must have a higher `@globalPriority` than all reactions in
 the same reactiveclass, so that all concurrent reactions can finish firing before resetting triggers.
@@ -278,7 +281,6 @@ msgsrv reaction_1_postamble() {
     in1_is_present = false;
     in2_is_present = false;
     in3_is_present = false;
-    reaction_1_scheduled = false;
 }
 ```
 

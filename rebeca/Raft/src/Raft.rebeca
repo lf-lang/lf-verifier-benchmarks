@@ -31,6 +31,7 @@ reactiveclass RaftNode(50) {
     statevars {
         int bank_index;			// ID of this node
         int leader;				// who this node thinks is leader
+        int leader_is_self;		// 1 if the node itself declares to be the leader, 0 otherwise. Used to fomulate properties.
         int election_timeout;	// in msec
         int term;
         int voted_for;
@@ -72,10 +73,12 @@ reactiveclass RaftNode(50) {
     RaftNode(int id, int et, int lat) {
     	bank_index = id; 		// Remember the node's own ID.
     	election_timeout = et; 	// Remember the election timeout.
-    	
+    	// Remember the communication latencies from this node to others.
     	for (int i = 0; i < NUM_NODES; i++) {
     		latencies[i] = lat;
     	}
+    	
+    	leader_is_self = 0;		// Not a leader yet.
     
         /* initialise “_is_present” flags */
         reset_port_in_is_present();
@@ -208,6 +211,7 @@ reactiveclass RaftNode(50) {
         }
 
 		// Schedule a reaction based on mode.
+		// FIXME: Is this correct?
 		if (mode == FOLLOWER) {
 			if (!scheduled_reaction_3) {
 				self.reaction_3();
@@ -230,7 +234,8 @@ reactiveclass RaftNode(50) {
 
 	@globalPriority(2)
     msgsrv reaction_1() {
-    	reaction_1_postamble();
+    	scheduled_reaction_1 = false;
+    	self.reaction_1_postamble();
     }
     
     @globalPriority(4)
@@ -243,7 +248,8 @@ reactiveclass RaftNode(50) {
         // Schedule lf_schedule_election_timeout_reached.
         self.lf_schedule_election_timeout_reached() after(election_timeout);
         
-        reaction_2_postamble();
+        scheduled_reaction_2 = false;
+        self.reaction_2_postamble();
     }
     
     @globalPriority(6)
@@ -295,7 +301,11 @@ reactiveclass RaftNode(50) {
     		}
     	}
     	
-    	reaction_3_postamble();
+    	// scheduled_reaction_3 must be marked false before calling preamble,
+    	// otherwise, read_port_in() could not schedule another reaction_3(),
+    	// which renews the election timeout. 
+    	scheduled_reaction_3 = false;
+    	self.reaction_3_postamble();
     }
     
     @globalPriority(8)
@@ -305,7 +315,8 @@ reactiveclass RaftNode(50) {
 		mode = CANDIDATE;
 		self.lf_schedule_start_election() after(0);
 		
-		reaction_4_postamble();
+		scheduled_reaction_4 = false;
+		self.reaction_4_postamble();
     }
     
     // The leader periodically sends out a heartbeat message to all
@@ -314,7 +325,8 @@ reactiveclass RaftNode(50) {
     msgsrv reaction_5() {
     	self.broadcast_message(MSG_HEART);
     	
-    	reaction_5_postamble();
+    	scheduled_reaction_5 = false;
+    	self.reaction_5_postamble();
     }
     
     @globalPriority(12)
@@ -338,6 +350,7 @@ reactiveclass RaftNode(50) {
               			self.lf_schedule_election_timeout_reached() after(election_timeout);
               			// Become a follower.
               			mode = FOLLOWER;
+              			leader_is_self = 0;
             		}
           		}
           		else if (incoming_type == MSG_ACK) {
@@ -345,7 +358,9 @@ reactiveclass RaftNode(50) {
           		}
     		}
     	}
-    	reaction_6_postamble();
+    	
+    	scheduled_reaction_6 = false;
+    	self.reaction_6_postamble();
     }
     
     @globalPriority(14)
@@ -363,7 +378,8 @@ reactiveclass RaftNode(50) {
     	// Schedule a timeout action to collect votes.
     	self.lf_schedule_election_timeout_reached() after(election_timeout);
     	
-    	reaction_7_postamble();
+    	scheduled_reaction_7 = false;
+    	self.reaction_7_postamble();
     }
     
     @globalPriority(16)
@@ -385,6 +401,7 @@ reactiveclass RaftNode(50) {
               			leader = bank_index;
               			// Transition to leader mode.
               			mode = LEADER;
+              			leader_is_self = 1;
               			
               			// FIXME: Forgetting return might be a real bug revealed by Rebeca.
               			// The broadcast might be sent multiple times!
@@ -430,7 +447,8 @@ reactiveclass RaftNode(50) {
     		}
     	}
     	
-    	reaction_8_postamble();
+    	scheduled_reaction_8 = false;
+    	self.reaction_8_postamble();
     }
     
     // If timeout is reached and no leader has been declared, then
@@ -439,32 +457,29 @@ reactiveclass RaftNode(50) {
     msgsrv reaction_9() {
     	self.lf_schedule_start_election() after(0);
     	
-    	reaction_9_postamble();
+    	scheduled_reaction_9 = false;
+    	self.reaction_9_postamble();
     }
 
     // Postamble
     @globalPriority(19)
     msgsrv reaction_1_postamble() {
         reset_port_in_is_present();
-        scheduled_reaction_1 = false;
     }
     
     @globalPriority(19)
     msgsrv reaction_2_postamble() {
     	// Triggered by startup.
-    	scheduled_reaction_2 = false;
     }
     
     @globalPriority(19)
     msgsrv reaction_3_postamble() {
     	reset_port_in_is_present();
-    	scheduled_reaction_3 = false;
     }
     
     @globalPriority(19)
     msgsrv reaction_4_postamble() {
     	election_timeout_reached_is_present = false;
-        scheduled_reaction_4 = false;
     }
     
     @globalPriority(19)
@@ -474,31 +489,26 @@ reactiveclass RaftNode(50) {
     	if (mode == LEADER) {
     		self.reaction_5() after(HEARTBEAT_PERIOD_MS);
     	}
-    	scheduled_reaction_5 = false;
     }
     
     @globalPriority(19)
     msgsrv reaction_6_postamble() {
     	reset_port_in_is_present();
-    	scheduled_reaction_6 = false;
     }
     
     @globalPriority(19)
     msgsrv reaction_7_postamble() {
     	start_election_is_present = false;
-    	scheduled_reaction_7 = false;
     }
     
     @globalPriority(19)
     msgsrv reaction_8_postamble() {
     	reset_port_in_is_present();
-    	scheduled_reaction_8 = false;
     }
     
     @globalPriority(19)
     msgsrv reaction_9_postamble() {
     	election_timeout_reached_is_present = false;
-    	scheduled_reaction_9 = false;
     }
 }
 
