@@ -269,7 +269,7 @@ set to `false`. In addition, if the reaction has a `_scheduled`
 variable, it also needs to be set to `false`.
 
 The postamble `msgsrv` must have a higher `@globalPriority` than all reactions in
-the same reactiveclass.
+the same reactiveclass, so that all concurrent reactions can finish firing before resetting triggers.
 
 Here is an example from the `Sink` reactor in `TrainDoorFeedback`.
 ```

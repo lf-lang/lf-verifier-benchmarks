@@ -10,6 +10,7 @@ env int MSG_LEADER      = -5;
 
 env int TIMEOUT_MS_LOW  = 150;
 env int TIMEOUT_MS_HIGH = 300;
+env int HEARTBEAT_PERIOD_MS = 100;
 
 env int FOLLOWER   		= 0;
 env int CANDIDATE  		= 1;
@@ -36,6 +37,7 @@ reactiveclass RaftNode(10) {
         int mode;				// FOLLOWER, LEADER, CANDIDATE
         int votes_received;
 
+		// TODO: Document the treatment of multiports in the conversion doc.
         int[5] in_type;
         int[5] in_term;
         boolean[5] in_is_present;
@@ -71,9 +73,7 @@ reactiveclass RaftNode(10) {
     	bank_index = id; // Remember the node's own ID.
     
         /* initialise “_is_present” flags */
-        for (int i = 0; i < NUM_NODES; i++) {
-        	in_is_present[i] = false;
-        }
+        reset_port_in_is_present();
         
         election_timeout_reached_is_present = false;
         start_election_is_present           = false;
@@ -94,19 +94,30 @@ reactiveclass RaftNode(10) {
         self.reaction_2();
     }
     
+    void reset_port_in_is_present() {
+    	for (int i = 0; i < NUM_NODES; i++) {
+        	in_is_present[i] = false;
+        }
+    }
+    
     // FIXME: Non-det. choices do not work in methods.
+    // For reaction body helper message servers, give them the highest priority.
+    // TODO: Document this assignment of @globalPriority in the conversion doc.
+    @globalPriority(0)
     msgsrv randomize_election_timeout() {
         election_timeout = ?(150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300);
     }
     
     // SCIENTIFIC MODELING of communication latencies
     // Each element is the latency between the current node and a destination node.
+    @globalPriority(0)
     msgsrv randomize_latencies() {
     	for (int i = 0; i < NUM_NODES; i++) {
     		latencies[i] = ?(150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300);
     	}
     }
     
+    @globalPriority(0)
     msgsrv send_message(int dest, int type) {
     
     	out_type_value[dest] = type;
@@ -127,6 +138,7 @@ reactiveclass RaftNode(10) {
     	}
     }
     
+    @globalPriority(0)
     msgsrv broadcast_message(int type) {
     
     	for (int i = 0; i < NUM_NODES; i++) {
@@ -145,6 +157,10 @@ reactiveclass RaftNode(10) {
     }
 
 	// Check if the action is updated. If so, cancel the current one.
+	// To set its @globalPriority, here we take the smaller reaction priority
+	// triggered by this reaction (reaction 4 with @globalPriority(8)) and
+	// subtract 1 from it, i.e., @globalPriority(7).
+	@globalPriority(7)
     msgsrv lf_schedule_election_timeout_reached() {
     	// Since this msgsrv is triggered, decrement the count.
     	election_timeout_reached_pending_count--;
@@ -154,6 +170,7 @@ reactiveclass RaftNode(10) {
     	if (election_timeout_reached_pending_count == 0) {
     		election_timeout_reached_is_present = true;
 	        // Trigger a reaction based on mode.
+	        // TODO: Document this treatment of modes in the conversion doc.
 			if (mode == FOLLOWER) {
 				self.reaction_4();
 			} else if (mode == CANDIDATE) {
@@ -162,6 +179,7 @@ reactiveclass RaftNode(10) {
     	}
     }
 
+	@globalPriority(13) // Triggering reaction_7 with @globalPriority(14)
     msgsrv lf_schedule_start_election() {
         start_election_is_present = true;
         if (mode == CANDIDATE) {
@@ -170,6 +188,7 @@ reactiveclass RaftNode(10) {
     }
 
 	// A parameterized read_port msgsrv for multiports
+	@globalPriority(1) // Triggering reaction 1 with @globalPriority(2), so this msgsrv needs to precede it.
     msgsrv read_port_in(int chan, int _type, int _term) {
         in_type[chan]    	= _type;
         in_term[chan]       = _term;
@@ -181,8 +200,12 @@ reactiveclass RaftNode(10) {
         }
     }
 
-    msgsrv reaction_1() {}
+	@globalPriority(2)
+    msgsrv reaction_1() {
+    	reaction_1_postamble();
+    }
     
+    @globalPriority(4)
     msgsrv reaction_2() {
     	// Select election timeout
         self.randomize_election_timeout();
@@ -191,8 +214,11 @@ reactiveclass RaftNode(10) {
         election_timeout_reached_pending_count++;
         // Schedule lf_schedule_election_timeout_reached.
         self.lf_schedule_election_timeout_reached() after(election_timeout);
+        
+        reaction_2_postamble();
     }
     
+    @globalPriority(6)
     msgsrv reaction_3() {
     	for (int _sender = 0; _sender < NUM_NODES; _sender++) {
     		int incoming_type = in_type[_sender];
@@ -240,21 +266,30 @@ reactiveclass RaftNode(10) {
           		}
     		}
     	}
+    	
+    	reaction_3_postamble();
     }
     
+    @globalPriority(8)
     msgsrv reaction_4() {
 	    // In Rebeca, mode transition needs to happen before lf_schedule,
 	    // so that reaction triggering works properly.
 		mode = CANDIDATE;
 		self.lf_schedule_start_election() after(0);
+		
+		reaction_4_postamble();
     }
     
     // The leader periodically sends out a heartbeat message to all
     // follower nodes to maintain authority.
+    @globalPriority(10)
     msgsrv reaction_5() {
     	self.broadcast_message(MSG_HEART);
+    	
+    	reaction_5_postamble();
     }
     
+    @globalPriority(12)
     msgsrv reaction_6() {
     	// Receive acks from followers.
     	for (int _sender = 0; _sender < NUM_NODES; _sender++) {
@@ -282,8 +317,10 @@ reactiveclass RaftNode(10) {
           		}
     		}
     	}
+    	reaction_6_postamble();
     }
     
+    @globalPriority(14)
     msgsrv reaction_7() {
     	// Increment its term id.
     	term++;
@@ -297,8 +334,11 @@ reactiveclass RaftNode(10) {
     	self.broadcast_message(MSG_ELECTION);
     	// Schedule a timeout action to collect votes.
     	self.lf_schedule_election_timeout_reached() after(election_timeout);
+    	
+    	reaction_7_postamble();
     }
     
+    @globalPriority(16)
     msgsrv reaction_8() {
     	// Receive votes from followers.
     	for (int _sender = 0; _sender < NUM_NODES; _sender++) {
@@ -357,20 +397,76 @@ reactiveclass RaftNode(10) {
           		}
     		}
     	}
+    	
+    	reaction_8_postamble();
     }
     
     // If timeout is reached and no leader has been declared, then
     // we do not have a winner. Restart the election.
+    @globalPriority(18)
     msgsrv reaction_9() {
     	self.lf_schedule_start_election() after(0);
+    	
+    	reaction_9_postamble();
     }
 
     // Postamble
-    msgsrv reaction_inputs_postamble() {
-        // TODO: Set input_is_present to false.
-        election_timeout_reached_is_present = false;
-        start_election_is_present          	= false;
-        scheduled_reaction_1             	= false;
+    @globalPriority(19)
+    msgsrv reaction_1_postamble() {
+        reset_port_in_is_present();
+        scheduled_reaction_1 = false;
+    }
+    
+    @globalPriority(19)
+    msgsrv reaction_2_postamble() {
+    	// Triggered by startup.
+    	scheduled_reaction_2 = false;
+    }
+    
+    @globalPriority(19)
+    msgsrv reaction_3_postamble() {
+    	reset_port_in_is_present();
+    	scheduled_reaction_3 = false;
+    }
+    
+    @globalPriority(19)
+    msgsrv reaction_4_postamble() {
+    	election_timeout_reached_is_present = false;
+        scheduled_reaction_4 = false;
+    }
+    
+    @globalPriority(19)
+    msgsrv reaction_5_postamble() {
+    	// Schedule the next timer firing of reaction_5 if still the leader.
+    	// TODO: Document this treatment of modes and timer in the conversion doc.
+    	if (mode == LEADER) {
+    		self.reaction_5() after(HEARTBEAT_PERIOD_MS);
+    	}
+    	scheduled_reaction_5 = false;
+    }
+    
+    @globalPriority(19)
+    msgsrv reaction_6_postamble() {
+    	reset_port_in_is_present();
+    	scheduled_reaction_6 = false;
+    }
+    
+    @globalPriority(19)
+    msgsrv reaction_7_postamble() {
+    	start_election_is_present = false;
+    	scheduled_reaction_7 = false;
+    }
+    
+    @globalPriority(19)
+    msgsrv reaction_8_postamble() {
+    	reset_port_in_is_present();
+    	scheduled_reaction_8 = false;
+    }
+    
+    @globalPriority(19)
+    msgsrv reaction_9_postamble() {
+    	election_timeout_reached_is_present = false;
+    	scheduled_reaction_9 = false;
     }
 }
 
