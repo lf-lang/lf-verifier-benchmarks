@@ -1,2 +1,10 @@
-property { 
+property {
+    define {
+        CORRECT_RECEIVED_VALUE = !test.input_error;
+        INPUT_RECEIVED = !test.no_input_received;
+    }
+    Assertion {
+        CorrectInput: CORRECT_RECEIVED_VALUE;
+        InputReceived: INPUT_RECEIVED;
+    }
 }

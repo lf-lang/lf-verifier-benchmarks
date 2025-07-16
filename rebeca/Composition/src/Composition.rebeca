@@ -16,7 +16,7 @@ reactiveclass Source(10) {
     }
     Source() {
         count = 0;
-        self.lf_schedule_t() after(1000000000); // 1 sec initial delay
+        self.lf_schedule_t() after(1); // 1 sec initial delay
     }
     
     // Timer reaction - sends count to test
@@ -26,13 +26,17 @@ reactiveclass Source(10) {
         y_value = count;
         test.read_port_x(y_value);
         // Schedule next timer event
-        self.lf_schedule_t() after(2000000000); // 2 sec period
+        self.lf_schedule_t() after(2); // 2 sec period
     }
     
     @GlobalPriority(0)
     msgsrv lf_schedule_t() {
-        t_is_present = true;
-        self.reaction_1();
+        if (count <= 10) {
+            t_is_present = true;
+            self.reaction_1();
+        } else {
+            test.lf_schedule_shutdown();
+        }
     }
 }
 
@@ -48,9 +52,14 @@ reactiveclass Test(10) {
         int count;
         // Actions
         boolean shutdown_is_present;
+        // Checkers
+        boolean input_error;
+        boolean no_input_received;
     }
     Test() {
         count = 0;
+        input_error = false;
+        no_input_received = false;
     }
     
     // Input reaction - verifies received value matches expected count
@@ -62,6 +71,7 @@ reactiveclass Test(10) {
         if (x_value != count) {
             // This would be a verification failure
             // In practice, this would be caught by the model checker
+            input_error = true;
         }
     }
     
@@ -71,7 +81,9 @@ reactiveclass Test(10) {
         if (count == 0) {
             // This would be a verification failure
             // In practice, this would be caught by the model checker
+            no_input_received = true;
         }
+        self.reaction_2();
     }
     
     @GlobalPriority(1)
