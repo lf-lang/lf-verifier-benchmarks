@@ -8,6 +8,7 @@ reactiveclass Source(10) {
     }
     statevars {
         // Outputs
+        //comment
         int y_value;
         // State variables
         int count;
